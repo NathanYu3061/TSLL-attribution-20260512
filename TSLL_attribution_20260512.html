@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TSLL 報酬歸因分解 · 2025-05-12 至 2026-05-12</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root {
+  --bg: #fafafa;
+  --card: #ffffff;
+  --text: #1a1a1a;
+  --text-muted: #666;
+  --text-faint: #999;
+  --border: #e5e5e5;
+  --grid: #ececec;
+  --accent: #1a1a1a;
+
+  /* Fed-inspired palette */
+  --c1: #4682B4;
+  --c2: #D4A574;
+  --c3: #85A552;
+  --c4: #B7546B;
+  --c5: #7088A8;
+  --resid: #B8B8B8;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 30px 24px 60px;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.control-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text);
+  transition: all 0.15s ease;
+}
+
+.btn:hover {
+  background: #f3f3f3;
+  border-color: #ccc;
+}
+
+.btn.active {
+  background: #1a1a1a;
+  color: white;
+  border-color: #1a1a1a;
+}
+
+.chart-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px;
+  position: relative;
+}
+
+.chart-row {
+  display: flex;
+  gap: 18px;
+  align-items: stretch;
+}
+
+#chart {
+  flex: 1;
+  min-width: 0;
+  height: 520px;
+  position: relative;
+}
+
+#chart svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+#inspector {
+  flex: 0 0 230px;
+  background: #f8f8f8;
+  border-radius: 8px;
+  padding: 14px 14px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.inspector-section {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.inspector-section:last-child {
+  border-bottom: none;
+}
+
+.inspector-section.header {
+  padding-top: 0;
+}
+
+.inspector-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.inspector-mode {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.inspector-prices {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  gap: 14px;
+}
+
+.inspector-prices-label {
+  color: var(--text-muted);
+}
+
+.inspector-prices-value {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.inspector-factor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  gap: 10px;
+}
+
+.inspector-factor-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-muted);
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-factor-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.inspector-factor-value {
+  color: var(--text);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.inspector-factor-value.positive { color: #2a7548; }
+.inspector-factor-value.negative { color: #b3413a; }
+.inspector-factor.dimmed { opacity: 0.35; }
+
+.inspector-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0 0;
+  gap: 10px;
+}
+
+.inspector-total-label {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.inspector-total-value {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.inspector-hint {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-style: italic;
+  padding-top: 6px;
+  line-height: 1.4;
+}
+
+.axis text {
+  font-size: 11px;
+  fill: var(--text-muted);
+  font-family: inherit;
+}
+
+.axis path,
+.axis line {
+  stroke: var(--border);
+  shape-rendering: crispEdges;
+}
+
+.grid line {
+  stroke: var(--grid);
+  stroke-dasharray: 0;
+  shape-rendering: crispEdges;
+}
+
+.grid path { stroke: none; }
+
+.zero-line {
+  stroke: #555;
+  stroke-width: 0.8;
+}
+
+.reference-line {
+  stroke: #aaa;
+  stroke-width: 0.7;
+  stroke-dasharray: 3 3;
+}
+
+.reference-label {
+  font-size: 10px;
+  fill: var(--text-faint);
+  text-anchor: middle;
+}
+
+.area {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.area:hover {
+  opacity: 0.85;
+}
+
+.area.dimmed {
+  opacity: 0.18;
+}
+
+.total-line {
+  fill: none;
+  stroke: #1a1a1a;
+  stroke-width: 1.8;
+  pointer-events: none;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 8px;
+  border-radius: 5px;
+  transition: background 0.15s ease;
+}
+
+.legend-item:hover {
+  background: #f3f3f3;
+}
+
+.legend-item.dimmed {
+  opacity: 0.4;
+}
+
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-swatch.line {
+  height: 2px;
+  background: #1a1a1a !important;
+}
+
+.legend-label {
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.legend-value {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+
+
+
+.hover-line {
+  stroke: #999;
+  stroke-width: 0.7;
+  stroke-dasharray: 2 2;
+  pointer-events: none;
+}
+
+.hover-dot {
+  fill: white;
+  stroke: #1a1a1a;
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.summary-card {
+  background: #f8f8f8;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.summary-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-value {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.summary-value.positive { color: #2a7548; }
+.summary-value.negative { color: #b3413a; }
+
+.summary-subtitle {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: 2px 0 0;
+}
+
+.footer-note {
+  margin-top: 18px;
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.factor-explainer {
+  margin-top: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px;
+}
+
+.factor-explainer h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.factor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.factor-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: #f8f8f8;
+  border-radius: 8px;
+}
+
+.factor-color {
+  width: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.factor-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.factor-text strong {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 3px;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .chart-row { flex-direction: column; }
+  #inspector { flex: 0 0 auto; }
+}
+
+@media (max-width: 768px) {
+  .container { padding: 20px 14px 40px; }
+  .title { font-size: 18px; }
+  #chart { height: 400px; }
+  .controls { gap: 6px; }
+  .btn { padding: 5px 9px; font-size: 11px; }
+  .legend { gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div class="header">
+<h1 class="title">TSLL 報酬歸因分解</h1>
+<p class="subtitle">2025-05-12 至 2026-05-12 · 252 個交易日 · 含官方股息（5 次配息 $0.96997/股）與 SOFR 假日 fallback 修正</p>
+</div>
+
+<div class="controls">
+<span class="control-label">檢視方式:</span>
+<button class="btn active" data-view="log">對數報酬</button>
+<button class="btn" data-view="simple">簡單報酬</button>
+<button class="btn" data-view="pct">百分比組成</button>
+<span class="control-label" style="margin-left: 20px;">Y 軸:</span>
+<button class="btn active" data-yaxis="auto">自動</button>
+<button class="btn" data-yaxis="symmetric">對稱</button>
+</div>
+
+<div class="chart-card">
+<div class="chart-row">
+<div id="chart"></div>
+<div id="inspector"></div>
+</div>
+<div id="legend" class="legend"></div>
+</div>
+
+<div class="summary" id="summary"></div>
+
+<div class="factor-explainer">
+<h3>因子說明</h3>
+<div class="factor-grid">
+<div class="factor-item">
+<div class="factor-color" style="background: var(--c1);"></div>
+<div class="factor-text"><strong>完美 2X 槓桿</strong>每日貢獻 = 2 × r_TSLA。假設 TSLL 完美追蹤 TSLA 兩倍報酬、沒有任何成本與複利耗損下應有的結果。</div>
+</div>
+<div class="factor-item">
+<div class="factor-color" style="background: var(--c2);"></div>
+<div class="factor-text"><strong>變異數拖累</strong>每日貢獻 = -(r_TSLA)²。每日再平衡造成的路徑依賴成本，TSLA 波動越大耗損越多。</div>
+</div>
+<div class="factor-item">
+<div class="factor-color" style="background: var(--c4);"></div>
+<div class="factor-text"><strong>Swap 利差 (4.03%)</strong>每日貢獻 = -1.812 × 4.03% / 252。TSLL 在 SOFR 之上額外支付給 7 家對手方銀行的溢價，以名目本金加權平均得出。</div>
+</div>
+<div class="factor-item">
+<div class="factor-color" style="background: var(--c3);"></div>
+<div class="factor-text"><strong>淨 SOFR 融資成本</strong>每日貢獻 = -0.998 × SOFR / 252。TSLL 在 1.812 倍名目本金上支付 SOFR、在 0.814 倍貨幣市場基金上收取 SOFR，淨曝險約 1.0 倍 NAV。</div>
+</div>
+<div class="factor-item">
+<div class="factor-color" style="background: var(--c5);"></div>
+<div class="factor-text"><strong>管理費 (0.95%)</strong>每日貢獻 = -0.95% / 252。Direxion 收取的固定費用，是所有成本因子中最小的一項。</div>
+</div>
+<div class="factor-item">
+<div class="factor-color" style="background: var(--resid);"></div>
+<div class="factor-text"><strong>殘差</strong>五因子模型無法解釋的部分：MMF 殖利率與 SOFR 的微小差距、盤中再平衡滑價、ETF 市價與 NAV 的溢價/折價。修正後僅 -0.68%，符合 Avellaneda-Zhang (2009) 論文「< 100bp」預期。</div>
+</div>
+</div>
+</div>
+
+<p class="footer-note">
+資料來源：TSLA / TSLL 日線收盤（Stooq）、SOFR（FRED）、Direxion 官方股息揭露、Direxion N-CSR 與 N-PORT 揭露文件（QH3 2025-07-31、年報 2025-10-31、QH1 2026-01-31）。
+TSLL 官方股息已加回計算（5 次 ex-date：2025-06-24、09-23、12-10、12-23、2026-03-24，共 $0.96997/股）。
+SOFR 美國聯邦假日（Columbus Day、Veterans Day）使用前一交易日數值。Swap 利差 4.03% 為三份揭露快照之間的時間加權、名目本金加權平均值。
+修正後殘差為 -0.68%，符合 Avellaneda-Zhang (2009) 論文預期。點擊圖例下方因子可切換顯示/隱藏。將滑鼠移到圖表上可查看任一日的詳細分解。
+</p>
+
+</div>
+
+<script>
+const ATTRIBUTION_DATA = [{"date":"2025-05-12","tsla":318.38,"tsll":12.87,"sofr":0.0428,"dividend":0.0,"cum_X":0.0,"cum_R_simple":0.0,"cum_c1":0.0,"cum_c2":0.0,"cum_c3":0.0,"cum_c4":0.0,"cum_c5":0.0,"cum_resid":0.0,"contrib_c1":0.0,"contrib_c2":0.0,"contrib_c3":0.0,"contrib_c4":0.0,"contrib_c5":0.0,"contrib_resid":0.0},{"date":"2025-05-13","tsla":334.07,"tsll":14.11,"sofr":0.043,"dividend":0.0,"cum_X":0.091985,"cum_R_simple":0.096348,"cum_c1":0.09621,"cum_c2":-0.002314,"cum_c3":-0.00017,"cum_c4":-0.00029,"cum_c5":-3.8e-05,"cum_resid":-0.001413,"contrib_c1":0.100774,"contrib_c2":-0.002424,"contrib_c3":-0.000178,"contrib_c4":-0.000304,"contrib_c5":-3.9e-05,"contrib_resid":-0.00148},{"date":"2025-05-14","tsla":347.68,"tsll":15.25,"sofr":0.0429,"dividend":0.0,"cum_X":0.16968,"cum_R_simple":0.184926,"cum_c1":0.176074,"cum_c2":-0.003909,"cum_c3":-0.00034,"cum_c4":-0.00058,"cum_c5":-7.5e-05,"cum_resid":-0.001489,"contrib_c1":0.191894,"contrib_c2":-0.00426,"contrib_c3":-0.000371,"contrib_c4":-0.000632,"contrib_c5":-8.2e-05,"contrib_resid":-0.001623},{"date":"2025-05-15","tsla":342.82,"tsll":14.82,"sofr":0.0431,"dividend":0.0,"cum_X":0.141079,"cum_R_simple":0.151515,"cum_c1":0.14792,"cum_c2":-0.004107,"cum_c3":-0.000511,"cum_c4":-0.000869,"cum_c5":-0.000113,"cum_resid":-0.001241,"contrib_c1":0.158862,"contrib_c2":-0.004411,"contrib_c3":-0.000549,"contrib_c4":-0.000934,"contrib_c5":-0.000121,"contrib_resid":-0.001333},{"date":"2025-05-16","tsla":349.98,"tsll":15.42,"sofr":0.043,"dividend":0.0,"cum_X":0.180766,"cum_R_simple":0.198135,"cum_c1":0.189261,"cum_c2":-0.004534,"cum_c3":-0.000681,"cum_c4":-0.001159,"cum_c5":-0.000151,"cum_resid":-0.001969,"contrib_c1":0.207446,"contrib_c2":-0.00497,"contrib_c3":-0.000747,"contrib_c4":-0.00127,"contrib_c5":-0.000165,"contrib_resid":-0.002158},{"date":"2025-05-19","tsla":342.09,"tsll":14.74,"sofr":0.0429,"dividend":0.0,"cum_X":0.135666,"cum_R_simple":0.145299,"cum_c1":0.143656,"cum_c2":-0.005054,"cum_c3":-0.000851,"cum_c4":-0.001449,"cum_c5":-0.000188,"cum_resid":-0.000448,"contrib_c1":0.153857,"contrib_c2":-0.005413,"contrib_c3":-0.000912,"contrib_c4":-0.001552,"contrib_c5":-0.000202,"contrib_resid":-0.00048},{"date":"2025-05-20","tsla":343.82,"tsll":14.9,"sofr":0.0427,"dividend":0.0,"cum_X":0.146462,"cum_R_simple":0.157731,"cum_c1":0.153745,"cum_c2":-0.005079,"cum_c3":-0.00102,"cum_c4":-0.001739,"cum_c5":-0.000226,"cum_resid":0.000781,"contrib_c1":0.165575,"contrib_c2":-0.00547,"contrib_c3":-0.001099,"contrib_c4":-0.001872,"contrib_c5":-0.000244,"contrib_resid":0.000842},{"date":"2025-05-21","tsla":334.62,"tsll":14.07,"sofr":0.0426,"dividend":0.0,"cum_X":0.089146,"cum_R_simple":0.09324,"cum_c1":0.0995,"cum_c2":-0.005815,"cum_c3":-0.001189,"cum_c4":-0.002028,"cum_c5":-0.000264,"cum_resid":-0.001058,"contrib_c1":0.10407,"contrib_c2":-0.006082,"contrib_c3":-0.001243,"contrib_c4":-0.002122,"contrib_c5":-0.000276,"contrib_resid":-0.001106},{"date":"2025-05-22","tsla":341.04,"tsll":14.62,"sofr":0.0426,"dividend":0.0,"cum_X":0.127491,"cum_R_simple":0.135975,"cum_c1":0.137508,"cum_c2":-0.006176,"cum_c3":-0.001358,"cum_c4":-0.002318,"cum_c5":-0.000302,"cum_resid":0.000137,"contrib_c1":0.146659,"contrib_c2":-0.006587,"contrib_c3":-0.001448,"contrib_c4":-0.002472,"contrib_c5":-0.000322,"contrib_resid":0.000146},{"date":"2025-05-23","tsla":339.34,"tsll":14.48,"sofr":0.0426,"dividend":0.0,"cum_X":0.117869,"cum_R_simple":0.125097,"cum_c1":0.127514,"cum_c2":-0.006201,"cum_c3":-0.001526,"cum_c4":-0.002608,"cum_c5":-0.000339,"cum_resid":0.00103,"contrib_c1":0.135333,"contrib_c2":-0.006581,"contrib_c3":-0.00162,"contrib_c4":-0.002768,"contrib_c5":-0.00036,"contrib_resid":0.001094},{"date":"2025-05-27","tsla":362.89,"tsll":16.46,"sofr":0.0431,"dividend":0.0,"cum_X":0.246034,"cum_R_simple":0.278943,"cum_c1":0.261708,"cum_c2":-0.010703,"cum_c3":-0.001697,"cum_c4":-0.002898,"cum_c5":-0.000377,"cum_resid":1e-06,"contrib_c1":0.296714,"contrib_c2":-0.012135,"contrib_c3":-0.001924,"contrib_c4":-0.003285,"contrib_c5":-0.000427,"contrib_resid":1e-06},{"date":"2025-05-28","tsla":356.9,"tsll":15.91,"sofr":0.0433,"dividend":0.0,"cum_X":0.212049,"cum_R_simple":0.236208,"cum_c1":0.22842,"cum_c2":-0.01098,"cum_c3":-0.001868,"cum_c4":-0.003188,"cum_c5":-0.000415,"cum_resid":8e-05,"contrib_c1":0.254445,"contrib_c2":-0.012231,"contrib_c3":-0.002081,"contrib_c4":-0.003551,"contrib_c5":-0.000462,"contrib_resid":8.9e-05},{"date":"2025-05-29","tsla":358.43,"tsll":16.05,"sofr":0.0433,"dividend":0.0,"cum_X":0.22081,"cum_R_simple":0.247086,"cum_c1":0.236975,"cum_c2":-0.010999,"cum_c3":-0.00204,"cum_c4":-0.003477,"cum_c5":-0.000452,"cum_resid":0.000803,"contrib_c1":0.265176,"contrib_c2":-0.012307,"contrib_c3":-0.002283,"contrib_c4":-0.003891,"contrib_c5":-0.000506,"contrib_resid":0.000898},{"date":"2025-05-30","tsla":346.46,"tsll":14.91,"sofr":0.0435,"dividend":0.0,"cum_X":0.147133,"cum_R_simple":0.158508,"cum_c1":0.169043,"cum_c2":-0.012152,"cum_c3":-0.002212,"cum_c4":-0.003767,"cum_c5":-0.00049,"cum_resid":-0.003289,"contrib_c1":0.182112,"contrib_c2":-0.013092,"contrib_c3":-0.002383,"contrib_c4":-0.004058,"contrib_c5":-0.000528,"contrib_resid":-0.003543},{"date":"2025-06-02","tsla":342.69,"tsll":14.64,"sofr":0.0435,"dividend":0.0,"cum_X":0.128858,"cum_R_simple":0.137529,"cum_c1":0.147161,"cum_c2":-0.012272,"cum_c3":-0.002385,"cum_c4":-0.004057,"cum_c5":-0.000528,"cum_resid":0.000938,"contrib_c1":0.157063,"contrib_c2":-0.013098,"contrib_c3":-0.002545,"contrib_c4":-0.00433,"contrib_c5":-0.000563,"contrib_resid":0.001002},{"date":"2025-06-03","tsla":344.27,"tsll":14.77,"sofr":0.0432,"dividend":0.0,"cum_X":0.137699,"cum_R_simple":0.14763,"cum_c1":0.156361,"cum_c2":-0.012293,"cum_c3":-0.002556,"cum_c4":-0.004347,"cum_c5":-0.000565,"cum_resid":0.001099,"contrib_c1":0.167638,"contrib_c2":-0.01318,"contrib_c3":-0.00274,"contrib_c4":-0.00466,"contrib_c5":-0.000606,"contrib_resid":0.001178},{"date":"2025-06-04","tsla":332.05,"tsll":13.72,"sofr":0.0428,"dividend":0.0,"cum_X":0.063956,"cum_R_simple":0.066045,"cum_c1":0.08408,"cum_c2":-0.013599,"cum_c3":-0.002725,"cum_c4":-0.004636,"cum_c5":-0.000603,"cum_resid":0.00144,"contrib_c1":0.086827,"contrib_c2":-0.014044,"contrib_c3":-0.002814,"contrib_c4":-0.004788,"contrib_c5":-0.000623,"contrib_resid":0.001487},{"date":"2025-06-05","tsla":284.7,"tsll":9.81,"sofr":0.0429,"dividend":0.0,"cum_X":-0.271497,"cum_R_simple":-0.237762,"cum_c1":-0.223619,"cum_c2":-0.037269,"cum_c3":-0.002895,"cum_c4":-0.004926,"cum_c5":-0.000641,"cum_resid":-0.002146,"contrib_c1":-0.195834,"contrib_c2":-0.032638,"contrib_c3":-0.002535,"contrib_c4":-0.004314,"contrib_c5":-0.000561,"contrib_resid":-0.00188},{"date":"2025-06-06","tsla":295.14,"tsll":10.5,"sofr":0.0429,"dividend":0.0,"cum_X":-0.203524,"cum_R_simple":-0.184149,"cum_c1":-0.151592,"cum_c2":-0.038566,"cum_c3":-0.003065,"cum_c4":-0.005216,"cum_c5":-0.000679,"cum_resid":-0.004407,"contrib_c1":-0.137161,"contrib_c2":-0.034895,"contrib_c3":-0.002773,"contrib_c4":-0.004719,"contrib_c5":-0.000614,"contrib_resid":-0.003987},{"date":"2025-06-09","tsla":308.58,"tsll":11.46,"sofr":0.0429,"dividend":0.0,"cum_X":-0.116036,"cum_R_simple":-0.109557,"cum_c1":-0.062529,"cum_c2":-0.040549,"cum_c3":-0.003235,"cum_c4":-0.005506,"cum_c5":-0.000716,"cum_resid":-0.003501,"contrib_c1":-0.059038,"contrib_c2":-0.038285,"contrib_c3":-0.003054,"contrib_c4":-0.005198,"contrib_c5":-0.000676,"contrib_resid":-0.003306},{"date":"2025-06-10","tsla":326.09,"tsll":12.75,"sofr":0.0428,"dividend":0.0,"cum_X":-0.009368,"cum_R_simple":-0.009324,"cum_c1":0.047856,"cum_c2":-0.043595,"cum_c3":-0.003404,"cum_c4":-0.005796,"cum_c5":-0.000754,"cum_resid":-0.003674,"contrib_c1":0.047632,"contrib_c2":-0.043392,"contrib_c3":-0.003388,"contrib_c4":-0.005768,"contrib_c5":-0.00075,"contrib_resid":-0.003657},{"date":"2025-06-11","tsla":326.43,"tsll":12.78,"sofr":0.0428,"dividend":0.0,"cum_X":-0.007018,"cum_R_simple":-0.006993,"cum_c1":0.04994,"cum_c2":-0.043596,"cum_c3":-0.003574,"cum_c4":-0.006085,"cum_c5":-0.000792,"cum_resid":-0.00291,"contrib_c1":0.049765,"contrib_c2":-0.043444,"contrib_c3":-0.003561,"contrib_c4":-0.006064,"contrib_c5":-0.000789,"contrib_resid":-0.0029},{"date":"2025-06-12","tsla":319.11,"tsll":12.19,"sofr":0.0428,"dividend":0.0,"cum_X":-0.054283,"cum_R_simple":-0.052836,"cum_c1":0.00458,"cum_c2":-0.044111,"cum_c3":-0.003743,"cum_c4":-0.006375,"cum_c5":-0.000829,"cum_resid":-0.003805,"contrib_c1":0.004458,"contrib_c2":-0.042935,"contrib_c3":-0.003644,"contrib_c4":-0.006205,"contrib_c5":-0.000807,"contrib_resid":-0.003704},{"date":"2025-06-13","tsla":325.31,"tsll":12.65,"sofr":0.0428,"dividend":0.0,"cum_X":-0.017242,"cum_R_simple":-0.017094,"cum_c1":0.043066,"cum_c2":-0.044481,"cum_c3":-0.003913,"cum_c4":-0.006665,"cum_c5":-0.000867,"cum_resid":-0.004382,"contrib_c1":0.042697,"contrib_c2":-0.0441,"contrib_c3":-0.003879,"contrib_c4":-0.006608,"contrib_c5":-0.00086,"contrib_resid":-0.004344},{"date":"2025-06-16","tsla":329.13,"tsll":12.94,"sofr":0.0432,"dividend":0.0,"cum_X":0.005424,"cum_R_simple":0.005439,"cum_c1":0.066414,"cum_c2":-0.044617,"cum_c3":-0.004084,"cum_c4":-0.006955,"cum_c5":-0.000905,"cum_resid":-0.00443,"contrib_c1":0.066595,"contrib_c2":-0.044738,"contrib_c3":-0.004095,"contrib_c4":-0.006974,"contrib_c5":-0.000907,"contrib_resid":-0.004442},{"date":"2025-06-17","tsla":316.35,"tsll":11.94,"sofr":0.0431,"dividend":0.0,"cum_X":-0.075005,"cum_R_simple":-0.072261,"cum_c1":-0.012793,"cum_c2":-0.046186,"cum_c3":-0.004255,"cum_c4":-0.007244,"cum_c5":-0.000942,"cum_resid":-0.003585,"contrib_c1":-0.012325,"contrib_c2":-0.044496,"contrib_c3":-0.004099,"contrib_c4":-0.006979,"contrib_c5":-0.000908,"contrib_resid":-0.003454},{"date":"2025-06-18","tsla":322.05,"tsll":12.37,"sofr":0.0428,"dividend":0.0,"cum_X":-0.039625,"cum_R_simple":-0.03885,"cum_c1":0.022922,"cum_c2":-0.046505,"cum_c3":-0.004424,"cum_c4":-0.007534,"cum_c5":-0.00098,"cum_resid":-0.003104,"contrib_c1":0.022474,"contrib_c2":-0.045595,"contrib_c3":-0.004338,"contrib_c4":-0.007387,"contrib_c5":-0.000961,"contrib_resid":-0.003044},{"date":"2025-06-20","tsla":322.16,"tsll":12.36,"sofr":0.0429,"dividend":0.0,"cum_X":-0.040434,"cum_R_simple":-0.039627,"cum_c1":0.023605,"cum_c2":-0.046505,"cum_c3":-0.004594,"cum_c4":-0.007824,"cum_c5":-0.001018,"cum_resid":-0.004098,"contrib_c1":0.023135,"contrib_c2":-0.045577,"contrib_c3":-0.004502,"contrib_c4":-0.007668,"contrib_c5":-0.000998,"contrib_resid":-0.004017},{"date":"2025-06-23","tsla":348.68,"tsll":14.39,"sofr":0.0429,"dividend":0.0,"cum_X":0.111634,"cum_R_simple":0.118104,"cum_c1":0.181818,"cum_c2":-0.052762,"cum_c3":-0.004764,"cum_c4":-0.008114,"cum_c5":-0.001056,"cum_resid":-0.003488,"contrib_c1":0.192355,"contrib_c2":-0.05582,"contrib_c3":-0.00504,"contrib_c4":-0.008584,"contrib_c5":-0.001117,"contrib_resid":-0.00369},{"date":"2025-06-24","tsla":340.47,"tsll":13.62,"sofr":0.043,"dividend":0.08962,"cum_X":0.063199,"cum_R_simple":0.065239,"cum_c1":0.134163,"cum_c2":-0.05333,"cum_c3":-0.004934,"cum_c4":-0.008404,"cum_c5":-0.001093,"cum_resid":-0.003203,"contrib_c1":0.138493,"contrib_c2":-0.055052,"contrib_c3":-0.005093,"contrib_c4":-0.008675,"contrib_c5":-0.001129,"contrib_resid":-0.003306},{"date":"2025-06-25","tsla":327.55,"tsll":12.58,"sofr":0.0436,"dividend":0.0,"cum_X":-0.016232,"cum_R_simple":-0.016101,"cum_c1":0.05679,"cum_c2":-0.054827,"cum_c3":-0.005107,"cum_c4":-0.008693,"cum_c5":-0.001131,"cum_resid":-0.003265,"contrib_c1":0.056332,"contrib_c2":-0.054384,"contrib_c3":-0.005066,"contrib_c4":-0.008623,"contrib_c5":-0.001122,"contrib_resid":-0.003238},{"date":"2025-06-26","tsla":325.78,"tsll":12.44,"sofr":0.044,"dividend":0.0,"cum_X":-0.027423,"cum_R_simple":-0.027051,"cum_c1":0.045953,"cum_c2":-0.054856,"cum_c3":-0.005281,"cum_c4":-0.008983,"cum_c5":-0.001169,"cum_resid":-0.003088,"contrib_c1":0.045329,"contrib_c2":-0.054111,"contrib_c3":-0.005209,"contrib_c4":-0.008861,"contrib_c5":-0.001153,"contrib_resid":-0.003046},{"date":"2025-06-27","tsla":323.63,"tsll":12.27,"sofr":0.0439,"dividend":0.0,"cum_X":-0.041183,"cum_R_simple":-0.040347,"cum_c1":0.032711,"cum_c2":-0.0549,"cum_c3":-0.005455,"cum_c4":-0.009273,"cum_c5":-0.001206,"cum_resid":-0.00306,"contrib_c1":0.032046,"contrib_c2":-0.053785,"contrib_c3":-0.005344,"contrib_c4":-0.009084,"contrib_c5":-0.001182,"contrib_resid":-0.002997},{"date":"2025-06-30","tsla":317.66,"tsll":11.81,"sofr":0.0445,"dividend":0.0,"cum_X":-0.079394,"cum_R_simple":-0.076324,"cum_c1":-0.004528,"cum_c2":-0.055247,"cum_c3":-0.005631,"cum_c4":-0.009563,"cum_c5":-0.001244,"cum_resid":-0.003181,"contrib_c1":-0.004353,"contrib_c2":-0.053111,"contrib_c3":-0.005413,"contrib_c4":-0.009193,"contrib_c5":-0.001196,"contrib_resid":-0.003058},{"date":"2025-07-01","tsla":300.71,"tsll":10.54,"sofr":0.0444,"dividend":0.0,"cum_X":-0.193163,"cum_R_simple":-0.175652,"cum_c1":-0.114199,"cum_c2":-0.058254,"cum_c3":-0.005807,"cum_c4":-0.009852,"cum_c5":-0.001282,"cum_resid":-0.00377,"contrib_c1":-0.103846,"contrib_c2":-0.052973,"contrib_c3":-0.005281,"contrib_c4":-0.008959,"contrib_c5":-0.001166,"contrib_resid":-0.003428},{"date":"2025-07-02","tsla":315.65,"tsll":11.58,"sofr":0.044,"dividend":0.0,"cum_X":-0.099061,"cum_R_simple":-0.094313,"cum_c1":-0.017223,"cum_c2":-0.060605,"cum_c3":-0.005981,"cum_c4":-0.010142,"cum_c5":-0.001319,"cum_resid":-0.00379,"contrib_c1":-0.016398,"contrib_c2":-0.0577,"contrib_c3":-0.005695,"contrib_c4":-0.009656,"contrib_c5":-0.001256,"contrib_resid":-0.003609},{"date":"2025-07-03","tsla":315.35,"tsll":11.53,"sofr":0.0435,"dividend":0.0,"cum_X":-0.103388,"cum_R_simple":-0.098223,"cum_c1":-0.019125,"cum_c2":-0.060606,"cum_c3":-0.006154,"cum_c4":-0.010432,"cum_c5":-0.001357,"cum_resid":-0.005715,"contrib_c1":-0.01817,"contrib_c2":-0.057578,"contrib_c3":-0.005846,"contrib_c4":-0.009911,"contrib_c5":-0.001289,"contrib_resid":-0.005429},{"date":"2025-07-07","tsla":293.94,"tsll":9.98,"sofr":0.0433,"dividend":0.0,"cum_X":-0.247757,"cum_R_simple":-0.219451,"cum_c1":-0.15974,"cum_c2":-0.065549,"cum_c3":-0.006325,"cum_c4":-0.010722,"cum_c5":-0.001395,"cum_resid":-0.004027,"contrib_c1":-0.141489,"contrib_c2":-0.05806,"contrib_c3":-0.005602,"contrib_c4":-0.009497,"contrib_c5":-0.001235,"contrib_resid":-0.003567},{"date":"2025-07-08","tsla":297.81,"tsll":10.24,"sofr":0.0434,"dividend":0.0,"cum_X":-0.222039,"cum_R_simple":-0.199116,"cum_c1":-0.13358,"cum_c2":-0.06572,"cum_c3":-0.006497,"cum_c4":-0.011011,"cum_c5":-0.001433,"cum_resid":-0.003798,"contrib_c1":-0.119789,"contrib_c2":-0.058935,"contrib_c3":-0.005826,"contrib_c4":-0.009875,"contrib_c5":-0.001285,"contrib_resid":-0.003406},{"date":"2025-07-09","tsla":295.88,"tsll":10.09,"sofr":0.0432,"dividend":0.0,"cum_X":-0.236796,"cum_R_simple":-0.210848,"cum_c1":-0.146583,"cum_c2":-0.065762,"cum_c3":-0.006668,"cum_c4":-0.011301,"cum_c5":-0.00147,"cum_resid":-0.005011,"contrib_c1":-0.130521,"contrib_c2":-0.058556,"contrib_c3":-0.005937,"contrib_c4":-0.010063,"contrib_c5":-0.001309,"contrib_resid":-0.004462},{"date":"2025-07-10","tsla":309.87,"tsll":11.04,"sofr":0.0431,"dividend":0.0,"cum_X":-0.146816,"cum_R_simple":-0.136547,"cum_c1":-0.054186,"cum_c2":-0.067896,"cum_c3":-0.006839,"cum_c4":-0.011591,"cum_c5":-0.001508,"cum_resid":-0.004796,"contrib_c1":-0.050396,"contrib_c2":-0.063148,"contrib_c3":-0.00636,"contrib_c4":-0.01078,"contrib_c5":-0.001402,"contrib_resid":-0.00446},{"date":"2025-07-11","tsla":313.51,"tsll":11.28,"sofr":0.0431,"dividend":0.0,"cum_X":-0.125309,"cum_R_simple":-0.117776,"cum_c1":-0.030829,"cum_c2":-0.068033,"cum_c3":-0.007009,"cum_c4":-0.011881,"cum_c5":-0.001546,"cum_resid":-0.006012,"contrib_c1":-0.028975,"contrib_c2":-0.063943,"contrib_c3":-0.006588,"contrib_c4":-0.011167,"contrib_c5":-0.001453,"contrib_resid":-0.00565},{"date":"2025-07-14","tsla":316.9,"tsll":11.53,"sofr":0.0433,"dividend":0.0,"cum_X":-0.103388,"cum_R_simple":-0.098223,"cum_c1":-0.009319,"cum_c2":-0.068149,"cum_c3":-0.007181,"cum_c4":-0.012171,"cum_c5":-0.001583,"cum_resid":-0.004986,"contrib_c1":-0.008853,"contrib_c2":-0.064744,"contrib_c3":-0.006822,"contrib_c4":-0.011563,"contrib_c5":-0.001504,"contrib_resid":-0.004737},{"date":"2025-07-15","tsla":310.78,"tsll":11.07,"sofr":0.0437,"dividend":0.0,"cum_X":-0.144102,"cum_R_simple":-0.1342,"cum_c1":-0.048321,"cum_c2":-0.068529,"cum_c3":-0.007354,"cum_c4":-0.01246,"cum_c5":-0.001621,"cum_resid":-0.005817,"contrib_c1":-0.045001,"contrib_c2":-0.06382,"contrib_c3":-0.006849,"contrib_c4":-0.011604,"contrib_c5":-0.00151,"contrib_resid":-0.005417},{"date":"2025-07-16","tsla":321.67,"tsll":11.84,"sofr":0.0434,"dividend":0.0,"cum_X":-0.076857,"cum_R_simple":-0.073978,"cum_c1":0.020561,"cum_c2":-0.069715,"cum_c3":-0.007526,"cum_c4":-0.01275,"cum_c5":-0.001659,"cum_resid":-0.005768,"contrib_c1":0.019791,"contrib_c2":-0.067103,"contrib_c3":-0.007244,"contrib_c4":-0.012272,"contrib_c5":-0.001597,"contrib_resid":-0.005552},{"date":"2025-07-17","tsla":319.41,"tsll":11.67,"sofr":0.0434,"dividend":0.0,"cum_X":-0.091319,"cum_R_simple":-0.087274,"cum_c1":0.00646,"cum_c2":-0.069765,"cum_c3":-0.007698,"cum_c4":-0.01304,"cum_c5":-0.001696,"cum_resid":-0.00558,"contrib_c1":0.006174,"contrib_c2":-0.066674,"contrib_c3":-0.007357,"contrib_c4":-0.012462,"contrib_c5":-0.001621,"contrib_resid":-0.005333},{"date":"2025-07-18","tsla":329.65,"tsll":12.4,"sofr":0.043,"dividend":0.0,"cum_X":-0.030644,"cum_R_simple":-0.030179,"cum_c1":0.069572,"cum_c2":-0.07076,"cum_c3":-0.007868,"cum_c4":-0.01333,"cum_c5":-0.001734,"cum_resid":-0.006524,"contrib_c1":0.068517,"contrib_c2":-0.069687,"contrib_c3":-0.007749,"contrib_c4":-0.013128,"contrib_c5":-0.001708,"contrib_resid":-0.006425},{"date":"2025-07-21","tsla":328.49,"tsll":12.33,"sofr":0.0428,"dividend":0.0,"cum_X":-0.036305,"cum_R_simple":-0.035654,"cum_c1":0.062522,"cum_c2":-0.070773,"cum_c3":-0.008037,"cum_c4":-0.013619,"cum_c5":-0.001772,"cum_resid":-0.004625,"contrib_c1":0.0614,"contrib_c2":-0.069504,"contrib_c3":-0.007893,"contrib_c4":-0.013375,"contrib_c5":-0.00174,"contrib_resid":-0.004542},{"date":"2025-07-22","tsla":332.11,"tsll":12.59,"sofr":0.0428,"dividend":0.0,"cum_X":-0.015438,"cum_R_simple":-0.015319,"cum_c1":0.084441,"cum_c2":-0.070893,"cum_c3":-0.008207,"cum_c4":-0.013909,"cum_c5":-0.00181,"cum_resid":-0.00506,"contrib_c1":0.083793,"contrib_c2":-0.070349,"contrib_c3":-0.008144,"contrib_c4":-0.013802,"contrib_c5":-0.001796,"contrib_resid":-0.005021},{"date":"2025-07-23","tsla":332.56,"tsll":12.66,"sofr":0.0428,"dividend":0.0,"cum_X":-0.009893,"cum_R_simple":-0.009844,"cum_c1":0.087149,"cum_c2":-0.070895,"cum_c3":-0.008376,"cum_c4":-0.014199,"cum_c5":-0.001847,"cum_resid":-0.001725,"contrib_c1":0.08672,"contrib_c2":-0.070545,"contrib_c3":-0.008335,"contrib_c4":-0.014129,"contrib_c5":-0.001838,"contrib_resid":-0.001716},{"date":"2025-07-24","tsla":305.3,"tsll":10.54,"sofr":0.043,"dividend":0.0,"cum_X":-0.193163,"cum_R_simple":-0.175652,"cum_c1":-0.083901,"cum_c2":-0.078209,"cum_c3":-0.008547,"cum_c4":-0.014489,"cum_c5":-0.001885,"cum_resid":-0.006132,"contrib_c1":-0.076296,"contrib_c2":-0.07112,"contrib_c3":-0.007772,"contrib_c4":-0.013175,"contrib_c5":-0.001714,"contrib_resid":-0.005576},{"date":"2025-07-25","tsla":316.06,"tsll":11.27,"sofr":0.0436,"dividend":0.0,"cum_X":-0.126196,"cum_R_simple":-0.118558,"cum_c1":-0.014627,"cum_c2":-0.079409,"cum_c3":-0.008719,"cum_c4":-0.014779,"cum_c5":-0.001923,"cum_resid":-0.006739,"contrib_c1":-0.013742,"contrib_c2":-0.074603,"contrib_c3":-0.008192,"contrib_c4":-0.013884,"contrib_c5":-0.001806,"contrib_resid":-0.006331},{"date":"2025-07-28","tsla":325.59,"tsll":11.95,"sofr":0.0436,"dividend":0.0,"cum_X":-0.067609,"cum_R_simple":-0.065374,"cum_c1":0.044787,"cum_c2":-0.080292,"cum_c3":-0.008892,"cum_c4":-0.015068,"cum_c5":-0.00196,"cum_resid":-0.006183,"contrib_c1":0.043306,"contrib_c2":-0.077638,"contrib_c3":-0.008598,"contrib_c4":-0.01457,"contrib_c5":-0.001896,"contrib_resid":-0.005979},{"date":"2025-07-29","tsla":321.2,"tsll":11.64,"sofr":0.0436,"dividend":0.0,"cum_X":-0.093893,"cum_R_simple":-0.08962,"cum_c1":0.017637,"cum_c2":-0.080476,"cum_c3":-0.009065,"cum_c4":-0.015358,"cum_c5":-0.001998,"cum_resid":-0.004633,"contrib_c1":0.016834,"contrib_c2":-0.076813,"contrib_c3":-0.008652,"contrib_c4":-0.014659,"contrib_c5":-0.001907,"contrib_resid":-0.004422},{"date":"2025-07-30","tsla":319.04,"tsll":11.47,"sofr":0.0432,"dividend":0.0,"cum_X":-0.108606,"cum_R_simple":-0.102916,"cum_c1":0.004142,"cum_c2":-0.080521,"cum_c3":-0.009236,"cum_c4":-0.015648,"cum_c5":-0.002036,"cum_resid":-0.005306,"contrib_c1":0.003925,"contrib_c2":-0.076303,"contrib_c3":-0.008752,"contrib_c4":-0.014828,"contrib_c5":-0.001929,"contrib_resid":-0.005028},{"date":"2025-07-31","tsla":308.27,"tsll":10.68,"sofr":0.0439,"dividend":0.0,"cum_X":-0.179968,"cum_R_simple":-0.164703,"cum_c1":-0.064539,"cum_c2":-0.081701,"cum_c3":-0.00941,"cum_c4":-0.015938,"cum_c5":-0.002073,"cum_resid":-0.006307,"contrib_c1":-0.059065,"contrib_c2":-0.074771,"contrib_c3":-0.008612,"contrib_c4":-0.014586,"contrib_c5":-0.001898,"contrib_resid":-0.005772},{"date":"2025-08-01","tsla":302.63,"tsll":10.32,"sofr":0.0434,"dividend":0.0,"cum_X":-0.214257,"cum_R_simple":-0.192859,"cum_c1":-0.101469,"cum_c2":-0.082042,"cum_c3":-0.009582,"cum_c4":-0.016227,"cum_c5":-0.002111,"cum_resid":-0.002826,"contrib_c1":-0.091336,"contrib_c2":-0.073848,"contrib_c3":-0.008625,"contrib_c4":-0.014607,"contrib_c5":-0.0019,"contrib_resid":-0.002543},{"date":"2025-08-04","tsla":309.26,"tsll":10.73,"sofr":0.0433,"dividend":0.0,"cum_X":-0.175297,"cum_R_simple":-0.160792,"cum_c1":-0.058127,"cum_c2":-0.082511,"cum_c3":-0.009753,"cum_c4":-0.016517,"cum_c5":-0.002149,"cum_resid":-0.00624,"contrib_c1":-0.053317,"contrib_c2":-0.075684,"contrib_c3":-0.008946,"contrib_c4":-0.015151,"contrib_c5":-0.001971,"contrib_resid":-0.005724},{"date":"2025-08-05","tsla":308.72,"tsll":10.7,"sofr":0.0434,"dividend":0.0,"cum_X":-0.178097,"cum_R_simple":-0.163139,"cum_c1":-0.061622,"cum_c2":-0.082514,"cum_c3":-0.009925,"cum_c4":-0.016807,"cum_c5":-0.002187,"cum_resid":-0.005042,"contrib_c1":-0.056446,"contrib_c2":-0.075584,"contrib_c3":-0.009091,"contrib_c4":-0.015395,"contrib_c5":-0.002003,"contrib_resid":-0.004619},{"date":"2025-08-06","tsla":319.91,"tsll":11.46,"sofr":0.0434,"dividend":0.0,"cum_X":-0.109478,"cum_R_simple":-0.103698,"cum_c1":0.009588,"cum_c2":-0.083782,"cum_c3":-0.010097,"cum_c4":-0.017097,"cum_c5":-0.002224,"cum_resid":-0.005866,"contrib_c1":0.009082,"contrib_c2":-0.079359,"contrib_c3":-0.009564,"contrib_c4":-0.016194,"contrib_c5":-0.002107,"contrib_resid":-0.005556},{"date":"2025-08-07","tsla":322.27,"tsll":11.61,"sofr":0.0435,"dividend":0.0,"cum_X":-0.096474,"cum_R_simple":-0.091966,"cum_c1":0.024288,"cum_c2":-0.083836,"cum_c3":-0.010269,"cum_c4":-0.017387,"cum_c5":-0.002262,"cum_resid":-0.007008,"contrib_c1":0.023153,"contrib_c2":-0.079919,"contrib_c3":-0.009789,"contrib_c4":-0.016574,"contrib_c5":-0.002156,"contrib_resid":-0.006681},{"date":"2025-08-08","tsla":329.65,"tsll":12.13,"sofr":0.0435,"dividend":0.0,"cum_X":-0.052659,"cum_R_simple":-0.051296,"cum_c1":0.069572,"cum_c2":-0.084349,"cum_c3":-0.010441,"cum_c4":-0.017676,"cum_c5":-0.0023,"cum_resid":-0.007464,"contrib_c1":0.067772,"contrib_c2":-0.082166,"contrib_c3":-0.010171,"contrib_c4":-0.017219,"contrib_c5":-0.00224,"contrib_resid":-0.007271},{"date":"2025-08-11","tsla":339.03,"tsll":12.84,"sofr":0.0434,"dividend":0.0,"cum_X":0.004225,"cum_R_simple":0.004234,"cum_c1":0.125686,"cum_c2":-0.085136,"cum_c3":-0.010613,"cum_c4":-0.017966,"cum_c5":-0.002337,"cum_resid":-0.005408,"contrib_c1":0.125952,"contrib_c2":-0.085316,"contrib_c3":-0.010636,"contrib_c4":-0.018004,"contrib_c5":-0.002342,"contrib_resid":-0.00542},{"date":"2025-08-12","tsla":340.84,"tsll":12.96,"sofr":0.0436,"dividend":0.0,"cum_X":0.013527,"cum_R_simple":0.013619,"cum_c1":0.136335,"cum_c2":-0.085164,"cum_c3":-0.010786,"cum_c4":-0.018256,"cum_c5":-0.002375,"cum_resid":-0.006227,"contrib_c1":0.137261,"contrib_c2":-0.085743,"contrib_c3":-0.010859,"contrib_c4":-0.01838,"contrib_c5":-0.002391,"contrib_resid":-0.006269},{"date":"2025-08-13","tsla":339.38,"tsll":12.86,"sofr":0.0433,"dividend":0.0,"cum_X":0.005781,"cum_R_simple":0.005798,"cum_c1":0.12775,"cum_c2":-0.085183,"cum_c3":-0.010957,"cum_c4":-0.018546,"cum_c5":-0.002413,"cum_resid":-0.00487,"contrib_c1":0.12812,"contrib_c2":-0.085429,"contrib_c3":-0.010989,"contrib_c4":-0.018599,"contrib_c5":-0.00242,"contrib_resid":-0.004884},{"date":"2025-08-14","tsla":335.58,"tsll":12.55,"sofr":0.0434,"dividend":0.0,"cum_X":-0.01862,"cum_R_simple":-0.018448,"cum_c1":0.105229,"cum_c2":-0.08531,"cum_c3":-0.011129,"cum_c4":-0.018835,"cum_c5":-0.00245,"cum_resid":-0.006125,"contrib_c1":0.104256,"contrib_c2":-0.08452,"contrib_c3":-0.011026,"contrib_c4":-0.018661,"contrib_c5":-0.002428,"contrib_resid":-0.006068},{"date":"2025-08-15","tsla":330.56,"tsll":12.19,"sofr":0.0436,"dividend":0.0,"cum_X":-0.047725,"cum_R_simple":-0.046604,"cum_c1":0.075085,"cum_c2":-0.085537,"cum_c3":-0.011302,"cum_c4":-0.019125,"cum_c5":-0.002488,"cum_resid":-0.004358,"contrib_c1":0.073322,"contrib_c2":-0.083528,"contrib_c3":-0.011037,"contrib_c4":-0.018676,"contrib_c5":-0.00243,"contrib_resid":-0.004255},{"date":"2025-08-18","tsla":335.16,"tsll":12.51,"sofr":0.0434,"dividend":0.0,"cum_X":-0.021812,"cum_R_simple":-0.021576,"cum_c1":0.102725,"cum_c2":-0.085728,"cum_c3":-0.011474,"cum_c4":-0.019415,"cum_c5":-0.002526,"cum_resid":-0.005395,"contrib_c1":0.101613,"contrib_c2":-0.0848,"contrib_c3":-0.01135,"contrib_c4":-0.019205,"contrib_c5":-0.002498,"contrib_resid":-0.005336},{"date":"2025-08-19","tsla":329.31,"tsll":12.07,"sofr":0.0433,"dividend":0.0,"cum_X":-0.057618,"cum_R_simple":-0.055989,"cum_c1":0.067508,"cum_c2":-0.086038,"cum_c3":-0.011645,"cum_c4":-0.019705,"cum_c5":-0.002563,"cum_resid":-0.005174,"contrib_c1":0.0656,"contrib_c2":-0.083606,"contrib_c3":-0.011316,"contrib_c4":-0.019148,"contrib_c5":-0.002491,"contrib_resid":-0.005028},{"date":"2025-08-20","tsla":323.9,"tsll":11.68,"sofr":0.0431,"dividend":0.0,"cum_X":-0.090463,"cum_R_simple":-0.086491,"cum_c1":0.034378,"cum_c2":-0.086312,"cum_c3":-0.011816,"cum_c4":-0.019995,"cum_c5":-0.002601,"cum_resid":-0.004117,"contrib_c1":0.032869,"contrib_c2":-0.082523,"contrib_c3":-0.011297,"contrib_c4":-0.019117,"contrib_c5":-0.002487,"contrib_resid":-0.003936},{"date":"2025-08-21","tsla":320.11,"tsll":11.41,"sofr":0.0432,"dividend":0.0,"cum_X":-0.11385,"cum_R_simple":-0.107609,"cum_c1":0.010838,"cum_c2":-0.086451,"cum_c3":-0.011987,"cum_c4":-0.020284,"cum_c5":-0.002639,"cum_resid":-0.003327,"contrib_c1":0.010244,"contrib_c2":-0.081711,"contrib_c3":-0.01133,"contrib_c4":-0.019172,"contrib_c5":-0.002494,"contrib_resid":-0.003145},{"date":"2025-08-22","tsla":340.01,"tsll":12.8,"sofr":0.0436,"dividend":0.0,"cum_X":0.001105,"cum_R_simple":0.001105,"cum_c1":0.131459,"cum_c2":-0.090088,"cum_c3":-0.01216,"cum_c4":-0.020574,"cum_c5":-0.002677,"cum_resid":-0.004856,"contrib_c1":0.131531,"contrib_c2":-0.090138,"contrib_c3":-0.012166,"contrib_c4":-0.020585,"contrib_c5":-0.002678,"contrib_resid":-0.004858},{"date":"2025-08-25","tsla":346.6,"tsll":13.28,"sofr":0.0437,"dividend":0.0,"cum_X":0.037919,"cum_R_simple":0.038647,"cum_c1":0.169851,"cum_c2":-0.090457,"cum_c3":-0.012333,"cum_c4":-0.020864,"cum_c5":-0.002714,"cum_resid":-0.005565,"contrib_c1":0.173113,"contrib_c2":-0.092193,"contrib_c3":-0.01257,"contrib_c4":-0.021264,"contrib_c5":-0.002766,"contrib_resid":-0.005672},{"date":"2025-08-26","tsla":351.67,"tsll":13.67,"sofr":0.0438,"dividend":0.0,"cum_X":0.066863,"cum_R_simple":0.069149,"cum_c1":0.198895,"cum_c2":-0.090667,"cum_c3":-0.012506,"cum_c4":-0.021154,"cum_c5":-0.002752,"cum_resid":-0.004953,"contrib_c1":0.205695,"contrib_c2":-0.093767,"contrib_c3":-0.012934,"contrib_c4":-0.021877,"contrib_c5":-0.002846,"contrib_resid":-0.005122},{"date":"2025-08-27","tsla":349.6,"tsll":13.5,"sofr":0.0436,"dividend":0.0,"cum_X":0.054349,"cum_R_simple":0.055853,"cum_c1":0.187088,"cum_c2":-0.090702,"cum_c3":-0.012679,"cum_c4":-0.021443,"cum_c5":-0.00279,"cum_resid":-0.005125,"contrib_c1":0.192265,"contrib_c2":-0.093212,"contrib_c3":-0.01303,"contrib_c4":-0.022037,"contrib_c5":-0.002867,"contrib_resid":-0.005266},{"date":"2025-08-28","tsla":345.98,"tsll":13.2,"sofr":0.0434,"dividend":0.0,"cum_X":0.031876,"cum_R_simple":0.03239,"cum_c1":0.166271,"cum_c2":-0.090811,"cum_c3":-0.012851,"cum_c4":-0.021733,"cum_c5":-0.002827,"cum_resid":-0.006172,"contrib_c1":0.168949,"contrib_c2":-0.092273,"contrib_c3":-0.013058,"contrib_c4":-0.022083,"contrib_c5":-0.002873,"contrib_resid":-0.006272},{"date":"2025-08-29","tsla":333.87,"tsll":12.29,"sofr":0.0434,"dividend":0.0,"cum_X":-0.039555,"cum_R_simple":-0.038783,"cum_c1":0.095012,"cum_c2":-0.09208,"cum_c3":-0.013023,"cum_c4":-0.022023,"cum_c5":-0.002865,"cum_resid":-0.004576,"contrib_c1":0.093158,"contrib_c2":-0.090283,"contrib_c3":-0.012769,"contrib_c4":-0.021593,"contrib_c5":-0.002809,"contrib_resid":-0.004487},{"date":"2025-09-02","tsla":329.36,"tsll":11.95,"sofr":0.0439,"dividend":0.0,"cum_X":-0.067609,"cum_R_simple":-0.065374,"cum_c1":0.067811,"cum_c2":-0.092265,"cum_c3":-0.013197,"cum_c4":-0.022313,"cum_c5":-0.002903,"cum_resid":-0.004744,"contrib_c1":0.06557,"contrib_c2":-0.089215,"contrib_c3":-0.01276,"contrib_c4":-0.021575,"contrib_c5":-0.002807,"contrib_resid":-0.004587},{"date":"2025-09-03","tsla":334.09,"tsll":12.28,"sofr":0.0439,"dividend":0.0,"cum_X":-0.040369,"cum_R_simple":-0.039565,"cum_c1":0.09633,"cum_c2":-0.092468,"cum_c3":-0.01337,"cum_c4":-0.022603,"cum_c5":-0.00294,"cum_resid":-0.005316,"contrib_c1":0.094411,"contrib_c2":-0.090627,"contrib_c3":-0.013104,"contrib_c4":-0.022152,"contrib_c5":-0.002882,"contrib_resid":-0.005211},{"date":"2025-09-04","tsla":338.53,"tsll":12.61,"sofr":0.0441,"dividend":0.0,"cum_X":-0.01385,"cum_R_simple":-0.013755,"cum_c1":0.122734,"cum_c2":-0.092643,"cum_c3":-0.013545,"cum_c4":-0.022892,"cum_c5":-0.002978,"cum_resid":-0.004526,"contrib_c1":0.121888,"contrib_c2":-0.092004,"contrib_c3":-0.013452,"contrib_c4":-0.022735,"contrib_c5":-0.002958,"contrib_resid":-0.004495},{"date":"2025-09-05","tsla":350.84,"tsll":13.51,"sofr":0.0442,"dividend":0.0,"cum_X":0.05509,"cum_R_simple":0.056635,"cum_c1":0.194169,"cum_c2":-0.093918,"cum_c3":-0.01372,"cum_c4":-0.023182,"cum_c5":-0.003016,"cum_resid":-0.005243,"contrib_c1":0.199617,"contrib_c2":-0.096554,"contrib_c3":-0.014105,"contrib_c4":-0.023833,"contrib_c5":-0.0031,"contrib_resid":-0.00539},{"date":"2025-09-08","tsla":346.4,"tsll":13.16,"sofr":0.044,"dividend":0.0,"cum_X":0.028841,"cum_R_simple":0.029261,"cum_c1":0.168697,"cum_c2":-0.094081,"cum_c3":-0.013894,"cum_c4":-0.023472,"cum_c5":-0.003054,"cum_resid":-0.005355,"contrib_c1":0.171153,"contrib_c2":-0.09545,"contrib_c3":-0.014097,"contrib_c4":-0.023814,"contrib_c5":-0.003098,"contrib_resid":-0.005433},{"date":"2025-09-09","tsla":346.97,"tsll":13.2,"sofr":0.044,"dividend":0.0,"cum_X":0.031876,"cum_R_simple":0.03239,"cum_c1":0.171985,"cum_c2":-0.094083,"cum_c3":-0.014069,"cum_c4":-0.023762,"cum_c5":-0.003091,"cum_resid":-0.005104,"contrib_c1":0.174756,"contrib_c2":-0.095599,"contrib_c3":-0.014295,"contrib_c4":-0.024144,"contrib_c5":-0.003141,"contrib_resid":-0.005186},{"date":"2025-09-10","tsla":347.79,"tsll":13.26,"sofr":0.0439,"dividend":0.0,"cum_X":0.036411,"cum_R_simple":0.037082,"cum_c1":0.176706,"cum_c2":-0.094089,"cum_c3":-0.014242,"cum_c4":-0.024051,"cum_c5":-0.003129,"cum_resid":-0.004783,"contrib_c1":0.179963,"contrib_c2":-0.095823,"contrib_c3":-0.014505,"contrib_c4":-0.024495,"contrib_c5":-0.003187,"contrib_resid":-0.004871},{"date":"2025-09-11","tsla":368.81,"tsll":14.83,"sofr":0.0441,"dividend":0.0,"cum_X":0.148312,"cum_R_simple":0.159874,"cum_c1":0.294072,"cum_c2":-0.097533,"cum_c3":-0.014417,"cum_c4":-0.024341,"cum_c5":-0.003167,"cum_resid":-0.006303,"contrib_c1":0.316998,"contrib_c2":-0.105136,"contrib_c3":-0.015541,"contrib_c4":-0.026239,"contrib_c5":-0.003414,"contrib_resid":-0.006794},{"date":"2025-09-12","tsla":395.94,"tsll":17.03,"sofr":0.0442,"dividend":0.0,"cum_X":0.286636,"cum_R_simple":0.331939,"cum_c1":0.436034,"cum_c2":-0.102571,"cum_c3":-0.014592,"cum_c4":-0.024631,"cum_c5":-0.003204,"cum_resid":-0.0044,"contrib_c1":0.50495,"contrib_c2":-0.118782,"contrib_c3":-0.016899,"contrib_c4":-0.028524,"contrib_c5":-0.003711,"contrib_resid":-0.005095},{"date":"2025-09-15","tsla":410.04,"tsll":18.21,"sofr":0.0451,"dividend":0.0,"cum_X":0.35363,"cum_R_simple":0.424229,"cum_c1":0.506018,"cum_c2":-0.103795,"cum_c3":-0.014771,"cum_c4":-0.024921,"cum_c5":-0.003242,"cum_resid":-0.005659,"contrib_c1":0.607039,"contrib_c2":-0.124517,"contrib_c3":-0.01772,"contrib_c4":-0.029896,"contrib_c5":-0.003889,"contrib_resid":-0.006789},{"date":"2025-09-16","tsla":421.62,"tsll":19.25,"sofr":0.0439,"dividend":0.0,"cum_X":0.409171,"cum_R_simple":0.505568,"cum_c1":0.561718,"cum_c2":-0.104571,"cum_c3":-0.014945,"cum_c4":-0.025211,"cum_c5":-0.00328,"cum_resid":-0.004541,"contrib_c1":0.694055,"contrib_c2":-0.129207,"contrib_c3":-0.018466,"contrib_c4":-0.03115,"contrib_c5":-0.004052,"contrib_resid":-0.005611},{"date":"2025-09-17","tsla":425.86,"tsll":19.64,"sofr":0.0438,"dividend":0.0,"cum_X":0.429228,"cum_R_simple":0.536071,"cum_c1":0.58173,"cum_c2":-0.104671,"cum_c3":-0.015118,"cum_c4":-0.0255,"cum_c5":-0.003317,"cum_resid":-0.003895,"contrib_c1":0.726534,"contrib_c2":-0.130726,"contrib_c3":-0.018881,"contrib_c4":-0.031848,"contrib_c5":-0.004143,"contrib_resid":-0.004865},{"date":"2025-09-18","tsla":416.85,"tsll":18.79,"sofr":0.0414,"dividend":0.0,"cum_X":0.384984,"cum_R_simple":0.469591,"cum_c1":0.538962,"cum_c2":-0.105128,"cum_c3":-0.015282,"cum_c4":-0.02579,"cum_c5":-0.003355,"cum_resid":-0.004422,"contrib_c1":0.657408,"contrib_c2":-0.128232,"contrib_c3":-0.018641,"contrib_c4":-0.031458,"contrib_c5":-0.004093,"contrib_resid":-0.005393},{"date":"2025-09-19","tsla":426.07,"tsll":19.63,"sofr":0.0414,"dividend":0.0,"cum_X":0.428718,"cum_R_simple":0.535289,"cum_c1":0.582716,"cum_c2":-0.105607,"cum_c3":-0.015446,"cum_c4":-0.02608,"cum_c5":-0.003393,"cum_resid":-0.003472,"contrib_c1":0.727567,"contrib_c2":-0.131859,"contrib_c3":-0.019286,"contrib_c4":-0.032563,"contrib_c5":-0.004236,"contrib_resid":-0.004335},{"date":"2025-09-22","tsla":434.21,"tsll":20.35,"sofr":0.0414,"dividend":0.0,"cum_X":0.46474,"cum_R_simple":0.591601,"cum_c1":0.620565,"cum_c2":-0.105965,"cum_c3":-0.01561,"cum_c4":-0.02637,"cum_c5":-0.003431,"cum_resid":-0.00445,"contrib_c1":0.789961,"contrib_c2":-0.13489,"contrib_c3":-0.019871,"contrib_c4":-0.033568,"contrib_c5":-0.004367,"contrib_resid":-0.005664},{"date":"2025-09-23","tsla":425.85,"tsll":19.5,"sofr":0.0412,"dividend":0.08933,"cum_X":0.426644,"cum_R_simple":0.532108,"cum_c1":0.581683,"cum_c2":-0.106343,"cum_c3":-0.015773,"cum_c4":-0.026659,"cum_c5":-0.003468,"cum_resid":-0.002795,"contrib_c1":0.725471,"contrib_c2":-0.13263,"contrib_c3":-0.019672,"contrib_c4":-0.033249,"contrib_c5":-0.004326,"contrib_resid":-0.003486},{"date":"2025-09-24","tsla":442.79,"tsll":21.03,"sofr":0.0413,"dividend":0.0,"cum_X":0.50218,"cum_R_simple":0.652319,"cum_c1":0.6597,"cum_c2":-0.107865,"cum_c3":-0.015937,"cum_c4":-0.026949,"cum_c5":-0.003506,"cum_resid":-0.003263,"contrib_c1":0.856934,"contrib_c2":-0.140114,"contrib_c3":-0.020701,"contrib_c4":-0.035006,"contrib_c5":-0.004554,"contrib_resid":-0.004239},{"date":"2025-09-25","tsla":423.39,"tsll":19.19,"sofr":0.0418,"dividend":0.0,"cum_X":0.410619,"cum_R_simple":0.507751,"cum_c1":0.570096,"cum_c2":-0.109872,"cum_c3":-0.016102,"cum_c4":-0.027239,"cum_c5":-0.003544,"cum_resid":-0.00272,"contrib_c1":0.704952,"contrib_c2":-0.135862,"contrib_c3":-0.019911,"contrib_c4":-0.033682,"contrib_c5":-0.004382,"contrib_resid":-0.003364},{"date":"2025-09-26","tsla":440.4,"tsll":20.71,"sofr":0.0416,"dividend":0.0,"cum_X":0.486847,"cum_R_simple":0.627177,"cum_c1":0.648876,"cum_c2":-0.111423,"cum_c3":-0.016267,"cum_c4":-0.027529,"cum_c5":-0.003581,"cum_resid":-0.003228,"contrib_c1":0.83591,"contrib_c2":-0.143541,"contrib_c3":-0.020956,"contrib_c4":-0.035464,"contrib_c5":-0.004614,"contrib_resid":-0.004159},{"date":"2025-09-29","tsla":443.21,"tsll":20.98,"sofr":0.0413,"dividend":0.0,"cum_X":0.4998,"cum_R_simple":0.648391,"cum_c1":0.661596,"cum_c2":-0.111464,"cum_c3":-0.016431,"cum_c4":-0.027819,"cum_c5":-0.003619,"cum_resid":-0.002464,"contrib_c1":0.85829,"contrib_c2":-0.144602,"contrib_c3":-0.021315,"contrib_c4":-0.036089,"contrib_c5":-0.004695,"contrib_resid":-0.003197},{"date":"2025-09-30","tsla":444.72,"tsll":21.11,"sofr":0.0424,"dividend":0.0,"cum_X":0.505977,"cum_R_simple":0.658605,"cum_c1":0.668398,"cum_c2":-0.111475,"cum_c3":-0.016598,"cum_c4":-0.028108,"cum_c5":-0.003657,"cum_resid":-0.002583,"contrib_c1":0.870021,"contrib_c2":-0.145102,"contrib_c3":-0.021605,"contrib_c4":-0.036587,"contrib_c5":-0.00476,"contrib_resid":-0.003362},{"date":"2025-10-01","tsla":459.46,"tsll":22.5,"sofr":0.042,"dividend":0.0,"cum_X":0.569745,"cum_R_simple":0.767817,"cum_c1":0.733612,"cum_c2":-0.112539,"cum_c3":-0.016765,"cum_c4":-0.028398,"cum_c5":-0.003694,"cum_resid":-0.002471,"contrib_c1":0.988652,"contrib_c2":-0.151663,"contrib_c3":-0.022593,"contrib_c4":-0.038271,"contrib_c5":-0.004979,"contrib_resid":-0.00333},{"date":"2025-10-02","tsla":436.0,"tsll":20.22,"sofr":0.042,"dividend":0.0,"cum_X":0.462902,"cum_R_simple":0.588678,"cum_c1":0.628793,"cum_c2":-0.115285,"cum_c3":-0.016931,"cum_c4":-0.028688,"cum_c5":-0.003732,"cum_resid":-0.001254,"contrib_c1":0.799643,"contrib_c2":-0.14661,"contrib_c3":-0.021532,"contrib_c4":-0.036483,"contrib_c5":-0.004746,"contrib_resid":-0.001595},{"date":"2025-10-03","tsla":429.83,"tsll":19.63,"sofr":0.0418,"dividend":0.0,"cum_X":0.433289,"cum_R_simple":0.542322,"cum_c1":0.600288,"cum_c2":-0.115489,"cum_c3":-0.017097,"cum_c4":-0.028978,"cum_c5":-0.00377,"cum_resid":-0.001667,"contrib_c1":0.751345,"contrib_c2":-0.14455,"contrib_c3":-0.021399,"contrib_c4":-0.03627,"contrib_c5":-0.004718,"contrib_resid":-0.002086},{"date":"2025-10-06","tsla":453.25,"tsll":21.75,"sofr":0.0415,"dividend":0.0,"cum_X":0.535844,"cum_R_simple":0.70889,"cum_c1":0.706396,"cum_c2":-0.118303,"cum_c3":-0.017261,"cum_c4":-0.029267,"cum_c5":-0.003808,"cum_resid":-0.001913,"contrib_c1":0.934521,"contrib_c2":-0.156508,"contrib_c3":-0.022835,"contrib_c4":-0.038719,"contrib_c5":-0.005037,"contrib_resid":-0.002531},{"date":"2025-10-07","tsla":433.09,"tsll":19.83,"sofr":0.0414,"dividend":0.0,"cum_X":0.443426,"cum_R_simple":0.558036,"cum_c1":0.6154,"cum_c2":-0.120373,"cum_c3":-0.017425,"cum_c4":-0.029557,"cum_c5":-0.003845,"cum_resid":-0.000773,"contrib_c1":0.774459,"contrib_c2":-0.151486,"contrib_c3":-0.021929,"contrib_c4":-0.037197,"contrib_c5":-0.004839,"contrib_resid":-0.000973},{"date":"2025-10-08","tsla":438.69,"tsll":20.31,"sofr":0.0412,"dividend":0.0,"cum_X":0.467343,"cum_R_simple":0.595749,"cum_c1":0.641095,"cum_c2":-0.120538,"cum_c3":-0.017588,"cum_c4":-0.029847,"cum_c5":-0.003883,"cum_resid":-0.001895,"contrib_c1":0.81724,"contrib_c2":-0.153657,"contrib_c3":-0.022421,"contrib_c4":-0.038048,"contrib_c5":-0.00495,"contrib_resid":-0.002415},{"date":"2025-10-09","tsla":435.54,"tsll":20.01,"sofr":0.0413,"dividend":0.0,"cum_X":0.452462,"cum_R_simple":0.572178,"cum_c1":0.626682,"cum_c2":-0.12059,"cum_c3":-0.017752,"cum_c4":-0.030137,"cum_c5":-0.003921,"cum_resid":-0.00182,"contrib_c1":0.792495,"contrib_c2":-0.152497,"contrib_c3":-0.022449,"contrib_c4":-0.038111,"contrib_c5":-0.004958,"contrib_resid":-0.002302},{"date":"2025-10-10","tsla":413.49,"tsll":17.96,"sofr":0.0415,"dividend":0.0,"cum_X":0.344377,"cum_R_simple":0.411111,"cum_c1":0.522775,"cum_c2":-0.12329,"cum_c3":-0.017916,"cum_c4":-0.030426,"cum_c5":-0.003958,"cum_resid":-0.002808,"contrib_c1":0.624079,"contrib_c2":-0.147181,"contrib_c3":-0.021388,"contrib_c4":-0.036323,"contrib_c5":-0.004725,"contrib_resid":-0.003352},{"date":"2025-10-13","tsla":435.9,"tsll":19.89,"sofr":0.0415,"dividend":0.0,"cum_X":0.446447,"cum_R_simple":0.56275,"cum_c1":0.628334,"cum_c2":-0.126075,"cum_c3":-0.01808,"cum_c4":-0.030716,"cum_c5":-0.003996,"cum_resid":-0.003019,"contrib_c1":0.79202,"contrib_c2":-0.158919,"contrib_c3":-0.022791,"contrib_c4":-0.038718,"contrib_c5":-0.005037,"contrib_resid":-0.003806},{"date":"2025-10-14","tsla":429.24,"tsll":19.3,"sofr":0.0419,"dividend":0.0,"cum_X":0.416335,"cum_R_simple":0.516394,"cum_c1":0.597541,"cum_c2":-0.126312,"cum_c3":-0.018246,"cum_c4":-0.031006,"cum_c5":-0.004034,"cum_resid":-0.001608,"contrib_c1":0.74115,"contrib_c2":-0.156669,"contrib_c3":-0.022632,"contrib_c4":-0.038458,"contrib_c5":-0.005003,"contrib_resid":-0.001994},{"date":"2025-10-15","tsla":435.15,"tsll":19.84,"sofr":0.0429,"dividend":0.0,"cum_X":0.44393,"cum_R_simple":0.558822,"cum_c1":0.62489,"cum_c2":-0.126499,"cum_c3":-0.018416,"cum_c4":-0.031296,"cum_c5":-0.004071,"cum_resid":-0.000677,"contrib_c1":0.786615,"contrib_c2":-0.159238,"contrib_c3":-0.023182,"contrib_c4":-0.039395,"contrib_c5":-0.005125,"contrib_resid":-0.000853},{"date":"2025-10-16","tsla":428.75,"tsll":19.24,"sofr":0.043,"dividend":0.0,"cum_X":0.413221,"cum_R_simple":0.51168,"cum_c1":0.595257,"cum_c2":-0.126719,"cum_c3":-0.018587,"cum_c4":-0.031586,"cum_c5":-0.004109,"cum_resid":-0.001035,"contrib_c1":0.737089,"contrib_c2":-0.156912,"contrib_c3":-0.023015,"contrib_c4":-0.039112,"contrib_c5":-0.005088,"contrib_resid":-0.001282},{"date":"2025-10-17","tsla":439.31,"tsll":20.17,"sofr":0.0418,"dividend":0.0,"cum_X":0.460426,"cum_R_simple":0.58475,"cum_c1":0.643919,"cum_c2":-0.127311,"cum_c3":-0.018752,"cum_c4":-0.031875,"cum_c5":-0.004147,"cum_resid":-0.001408,"contrib_c1":0.817789,"contrib_c2":-0.161687,"contrib_c3":-0.023815,"contrib_c4":-0.040482,"contrib_c5":-0.005267,"contrib_resid":-0.001788},{"date":"2025-10-20","tsla":447.43,"tsll":20.91,"sofr":0.0416,"dividend":0.0,"cum_X":0.496458,"cum_R_simple":0.642891,"cum_c1":0.680549,"cum_c2":-0.127646,"cum_c3":-0.018917,"cum_c4":-0.032165,"cum_c5":-0.004185,"cum_resid":-0.001179,"contrib_c1":0.881281,"contrib_c2":-0.165296,"contrib_c3":-0.024497,"contrib_c4":-0.041652,"contrib_c5":-0.005419,"contrib_resid":-0.001526},{"date":"2025-10-21","tsla":442.6,"tsll":20.46,"sofr":0.0423,"dividend":0.0,"cum_X":0.474702,"cum_R_simple":0.607535,"cum_c1":0.658842,"cum_c2":-0.127764,"cum_c3":-0.019084,"cum_c4":-0.032455,"cum_c5":-0.004222,"cum_resid":-0.000614,"contrib_c1":0.843201,"contrib_c2":-0.163516,"contrib_c3":-0.024425,"contrib_c4":-0.041537,"contrib_c5":-0.005404,"contrib_resid":-0.000786},{"date":"2025-10-22","tsla":438.97,"tsll":20.1,"sofr":0.0421,"dividend":0.0,"cum_X":0.45695,"cum_R_simple":0.57925,"cum_c1":0.642371,"cum_c2":-0.127832,"cum_c3":-0.019251,"cum_c4":-0.032745,"cum_c5":-0.00426,"cum_resid":-0.001333,"contrib_c1":0.814297,"contrib_c2":-0.162045,"contrib_c3":-0.024404,"contrib_c4":-0.041509,"contrib_c5":-0.0054,"contrib_resid":-0.00169},{"date":"2025-10-23","tsla":448.98,"tsll":21.01,"sofr":0.0424,"dividend":0.0,"cum_X":0.501229,"cum_R_simple":0.650748,"cum_c1":0.687465,"cum_c2":-0.12834,"cum_c3":-0.019419,"cum_c4":-0.033034,"cum_c5":-0.004298,"cum_resid":-0.001145,"contrib_c1":0.89254,"contrib_c2":-0.166625,"contrib_c3":-0.025212,"contrib_c4":-0.042889,"contrib_c5":-0.00558,"contrib_resid":-0.001487},{"date":"2025-10-24","tsla":433.72,"tsll":19.59,"sofr":0.0424,"dividend":0.0,"cum_X":0.431249,"cum_R_simple":0.539179,"cum_c1":0.618307,"cum_c2":-0.129536,"cum_c3":-0.019587,"cum_c4":-0.033324,"cum_c5":-0.004335,"cum_resid":-0.000275,"contrib_c1":0.773052,"contrib_c2":-0.161955,"contrib_c3":-0.024489,"contrib_c4":-0.041664,"contrib_c5":-0.00542,"contrib_resid":-0.000344},{"date":"2025-10-27","tsla":452.42,"tsll":21.25,"sofr":0.0427,"dividend":0.0,"cum_X":0.512587,"cum_R_simple":0.669605,"cum_c1":0.702731,"cum_c2":-0.131318,"cum_c3":-0.019756,"cum_c4":-0.033614,"cum_c5":-0.004373,"cum_resid":-0.001083,"contrib_c1":0.917994,"contrib_c2":-0.171544,"contrib_c3":-0.025808,"contrib_c4":-0.043911,"contrib_c5":-0.005713,"contrib_resid":-0.001414},{"date":"2025-10-28","tsla":460.55,"tsll":22.02,"sofr":0.0431,"dividend":0.0,"cum_X":0.548181,"cum_R_simple":0.730103,"cum_c1":0.738352,"cum_c2":-0.131635,"cum_c3":-0.019927,"cum_c4":-0.033904,"cum_c5":-0.004411,"cum_resid":-0.000294,"contrib_c1":0.983385,"contrib_c2":-0.17532,"contrib_c3":-0.02654,"contrib_c4":-0.045155,"contrib_c5":-0.005874,"contrib_resid":-0.000392},{"date":"2025-10-29","tsla":461.51,"tsll":22.09,"sofr":0.0427,"dividend":0.0,"cum_X":0.551355,"cum_R_simple":0.735603,"cum_c1":0.742516,"cum_c2":-0.131639,"cum_c3":-0.020096,"cum_c4":-0.034194,"cum_c5":-0.004448,"cum_resid":-0.000784,"contrib_c1":0.990645,"contrib_c2":-0.17563,"contrib_c3":-0.026811,"contrib_c4":-0.04562,"contrib_c5":-0.005935,"contrib_resid":-0.001046},{"date":"2025-10-30","tsla":440.1,"tsll":20.06,"sofr":0.0404,"dividend":0.0,"cum_X":0.454958,"cum_R_simple":0.576107,"cum_c1":0.647513,"cum_c2":-0.133896,"cum_c3":-0.020256,"cum_c4":-0.034483,"cum_c5":-0.004486,"cum_resid":0.000566,"contrib_c1":0.819936,"contrib_c2":-0.16955,"contrib_c3":-0.02565,"contrib_c4":-0.043666,"contrib_c5":-0.005681,"contrib_resid":0.000717},{"date":"2025-10-31","tsla":456.56,"tsll":21.54,"sofr":0.0422,"dividend":0.0,"cum_X":0.526142,"cum_R_simple":0.69239,"cum_c1":0.720949,"cum_c2":-0.135244,"cum_c3":-0.020423,"cum_c4":-0.034773,"cum_c5":-0.004524,"cum_resid":0.000157,"contrib_c1":0.948752,"contrib_c2":-0.177978,"contrib_c3":-0.026876,"contrib_c4":-0.045761,"contrib_c5":-0.005953,"contrib_resid":0.000206},{"date":"2025-11-03","tsla":468.37,"tsll":22.64,"sofr":0.0413,"dividend":0.0,"cum_X":0.575948,"cum_R_simple":0.778817,"cum_c1":0.772026,"cum_c2":-0.135896,"cum_c3":-0.020587,"cum_c4":-0.035063,"cum_c5":-0.004562,"cum_resid":3e-05,"contrib_c1":1.043959,"contrib_c2":-0.183763,"contrib_c3":-0.027838,"contrib_c4":-0.047413,"contrib_c5":-0.006168,"contrib_resid":4e-05},{"date":"2025-11-04","tsla":444.26,"tsll":20.34,"sofr":0.04,"dividend":0.0,"cum_X":0.468819,"cum_R_simple":0.598106,"cum_c1":0.666329,"cum_c2":-0.138689,"cum_c3":-0.020745,"cum_c4":-0.035353,"cum_c5":-0.004599,"cum_resid":0.001877,"contrib_c1":0.850083,"contrib_c2":-0.176936,"contrib_c3":-0.026466,"contrib_c4":-0.045102,"contrib_c5":-0.005868,"contrib_resid":0.002394},{"date":"2025-11-05","tsla":462.07,"tsll":21.92,"sofr":0.0391,"dividend":0.0,"cum_X":0.543629,"cum_R_simple":0.722246,"cum_c1":0.744942,"cum_c2":-0.140234,"cum_c3":-0.0209,"cum_c4":-0.035642,"cum_c5":-0.004637,"cum_resid":0.000101,"contrib_c1":0.989702,"contrib_c2":-0.18631,"contrib_c3":-0.027767,"contrib_c4":-0.047353,"contrib_c5":-0.00616,"contrib_resid":0.000135},{"date":"2025-11-06","tsla":445.91,"tsll":20.41,"sofr":0.0392,"dividend":0.0,"cum_X":0.472255,"cum_R_simple":0.603606,"cum_c1":0.673743,"cum_c2":-0.141502,"cum_c3":-0.021055,"cum_c4":-0.035932,"cum_c5":-0.004675,"cum_resid":0.001675,"contrib_c1":0.861135,"contrib_c2":-0.180858,"contrib_c3":-0.026911,"contrib_c4":-0.045926,"contrib_c5":-0.005975,"contrib_resid":0.002141},{"date":"2025-11-07","tsla":429.52,"tsll":18.87,"sofr":0.0393,"dividend":0.0,"cum_X":0.393803,"cum_R_simple":0.482609,"cum_c1":0.598845,"cum_c2":-0.142904,"cum_c3":-0.021211,"cum_c4":-0.036222,"cum_c5":-0.004712,"cum_resid":7e-06,"contrib_c1":0.733889,"contrib_c2":-0.17513,"contrib_c3":-0.025994,"contrib_c4":-0.04439,"contrib_c5":-0.005775,"contrib_resid":9e-06},{"date":"2025-11-10","tsla":445.23,"tsll":20.23,"sofr":0.0395,"dividend":0.0,"cum_X":0.463397,"cum_R_simple":0.589464,"cum_c1":0.670691,"cum_c2":-0.144194,"cum_c3":-0.021367,"cum_c4":-0.036512,"cum_c5":-0.00475,"cum_resid":-0.000471,"contrib_c1":0.853152,"contrib_c2":-0.183422,"contrib_c3":-0.02718,"contrib_c4":-0.046445,"contrib_c5":-0.006042,"contrib_resid":-0.000599},{"date":"2025-11-11","tsla":439.62,"tsll":19.69,"sofr":0.0395,"dividend":0.0,"cum_X":0.436341,"cum_R_simple":0.547036,"cum_c1":0.64533,"cum_c2":-0.144355,"cum_c3":-0.021524,"cum_c4":-0.036802,"cum_c5":-0.004788,"cum_resid":-0.001521,"contrib_c1":0.809044,"contrib_c2":-0.180977,"contrib_c3":-0.026984,"contrib_c4":-0.046138,"contrib_c5":-0.006002,"contrib_resid":-0.001907},{"date":"2025-11-12","tsla":430.6,"tsll":18.91,"sofr":0.0398,"dividend":0.0,"cum_X":0.395921,"cum_R_simple":0.485752,"cum_c1":0.603868,"cum_c2":-0.144785,"cum_c3":-0.021681,"cum_c4":-0.037091,"cum_c5":-0.004825,"cum_resid":0.000436,"contrib_c1":0.74088,"contrib_c2":-0.177635,"contrib_c3":-0.0266,"contrib_c4":-0.045507,"contrib_c5":-0.00592,"contrib_resid":0.000535},{"date":"2025-11-13","tsla":401.99,"tsll":16.38,"sofr":0.04,"dividend":0.0,"cum_X":0.252291,"cum_R_simple":0.286971,"cum_c1":0.466363,"cum_c2":-0.149512,"cum_c3":-0.02184,"cum_c4":-0.037381,"cum_c5":-0.004863,"cum_resid":-0.000476,"contrib_c1":0.530469,"contrib_c2":-0.170063,"contrib_c3":-0.024842,"contrib_c4":-0.042519,"contrib_c5":-0.005532,"contrib_resid":-0.000542},{"date":"2025-11-14","tsla":404.35,"tsll":16.58,"sofr":0.0395,"dividend":0.0,"cum_X":0.264427,"cum_R_simple":0.302685,"cum_c1":0.47807,"cum_c2":-0.149546,"cum_c3":-0.021996,"cum_c4":-0.037671,"cum_c5":-0.004901,"cum_resid":0.000471,"contrib_c1":0.547238,"contrib_c2":-0.171182,"contrib_c3":-0.025178,"contrib_c4":-0.043121,"contrib_c5":-0.00561,"contrib_resid":0.000539},{"date":"2025-11-17","tsla":408.92,"tsll":16.92,"sofr":0.04,"dividend":0.0,"cum_X":0.284726,"cum_R_simple":0.329398,"cum_c1":0.500548,"cum_c2":-0.149672,"cum_c3":-0.022154,"cum_c4":-0.037961,"cum_c5":-0.004938,"cum_resid":-0.001095,"contrib_c1":0.579081,"contrib_c2":-0.173155,"contrib_c3":-0.02563,"contrib_c4":-0.043916,"contrib_c5":-0.005713,"contrib_resid":-0.001267},{"date":"2025-11-18","tsla":401.25,"tsll":16.29,"sofr":0.0394,"dividend":0.0,"cum_X":0.246781,"cum_R_simple":0.279899,"cum_c1":0.462678,"cum_c2":-0.150031,"cum_c3":-0.02231,"cum_c4":-0.03825,"cum_c5":-0.004976,"cum_resid":-0.000329,"contrib_c1":0.524769,"contrib_c2":-0.170165,"contrib_c3":-0.025304,"contrib_c4":-0.043384,"contrib_c5":-0.005644,"contrib_resid":-0.000373},{"date":"2025-11-19","tsla":403.99,"tsll":16.51,"sofr":0.0391,"dividend":0.0,"cum_X":0.260196,"cum_R_simple":0.297185,"cum_c1":0.476289,"cum_c2":-0.150077,"cum_c3":-0.022465,"cum_c4":-0.03854,"cum_c5":-0.005014,"cum_resid":4e-06,"contrib_c1":0.543996,"contrib_c2":-0.171412,"contrib_c3":-0.025659,"contrib_c4":-0.044019,"contrib_c5":-0.005727,"contrib_resid":5e-06},{"date":"2025-11-20","tsla":395.23,"tsll":15.77,"sofr":0.0391,"dividend":0.0,"cum_X":0.214339,"cum_R_simple":0.239043,"cum_c1":0.432444,"cum_c2":-0.150558,"cum_c3":-0.02262,"cum_c4":-0.03883,"cum_c5":-0.005052,"cum_resid":-0.001045,"contrib_c1":0.482286,"contrib_c2":-0.16791,"contrib_c3":-0.025227,"contrib_c4":-0.043305,"contrib_c5":-0.005634,"contrib_resid":-0.001166},{"date":"2025-11-21","tsla":391.09,"tsll":15.43,"sofr":0.0393,"dividend":0.0,"cum_X":0.192544,"cum_R_simple":0.212329,"cum_c1":0.411384,"cum_c2":-0.150669,"cum_c3":-0.022776,"cum_c4":-0.03912,"cum_c5":-0.005089,"cum_resid":-0.001187,"contrib_c1":0.453658,"contrib_c2":-0.166151,"contrib_c3":-0.025116,"contrib_c4":-0.04314,"contrib_c5":-0.005612,"contrib_resid":-0.001309},{"date":"2025-11-24","tsla":417.78,"tsll":17.49,"sofr":0.0396,"dividend":0.0,"cum_X":0.317859,"cum_R_simple":0.374183,"cum_c1":0.543419,"cum_c2":-0.155027,"cum_c3":-0.022933,"cum_c4":-0.03941,"cum_c5":-0.005127,"cum_resid":-0.003063,"contrib_c1":0.639711,"contrib_c2":-0.182497,"contrib_c3":-0.026996,"contrib_c4":-0.046393,"contrib_c5":-0.006035,"contrib_resid":-0.003606},{"date":"2025-11-25","tsla":419.4,"tsll":17.64,"sofr":0.0401,"dividend":0.0,"cum_X":0.326399,"cum_R_simple":0.385968,"cum_c1":0.551159,"cum_c2":-0.155042,"cum_c3":-0.023091,"cum_c4":-0.039699,"cum_c5":-0.005165,"cum_resid":-0.001762,"contrib_c1":0.651748,"contrib_c2":-0.183338,"contrib_c3":-0.027306,"contrib_c4":-0.046945,"contrib_c5":-0.006107,"contrib_resid":-0.002084},{"date":"2025-11-26","tsla":426.58,"tsll":18.23,"sofr":0.0405,"dividend":0.0,"cum_X":0.359299,"cum_R_simple":0.432324,"cum_c1":0.585109,"cum_c2":-0.15533,"cum_c3":-0.023252,"cum_c4":-0.039989,"cum_c5":-0.005202,"cum_resid":-0.002037,"contrib_c1":0.704029,"contrib_c2":-0.1869,"contrib_c3":-0.027978,"contrib_c4":-0.048117,"contrib_c5":-0.00626,"contrib_resid":-0.00245},{"date":"2025-11-28","tsla":430.17,"tsll":18.52,"sofr":0.0412,"dividend":0.0,"cum_X":0.375081,"cum_R_simple":0.45511,"cum_c1":0.60187,"cum_c2":-0.1554,"cum_c3":-0.023415,"cum_c4":-0.040279,"cum_c5":-0.00524,"cum_resid":-0.002454,"contrib_c1":0.730286,"contrib_c2":-0.188557,"contrib_c3":-0.028411,"contrib_c4":-0.048873,"contrib_c5":-0.006358,"contrib_resid":-0.002978},{"date":"2025-12-01","tsla":430.14,"tsll":18.49,"sofr":0.0412,"dividend":0.0,"cum_X":0.37346,"cum_R_simple":0.452753,"cum_c1":0.60173,"cum_c2":-0.1554,"cum_c3":-0.023578,"cum_c4":-0.040569,"cum_c5":-0.005278,"cum_resid":-0.003445,"contrib_c1":0.729489,"contrib_c2":-0.188395,"contrib_c3":-0.028584,"contrib_c4":-0.049182,"contrib_c5":-0.006398,"contrib_resid":-0.004177},{"date":"2025-12-02","tsla":429.24,"tsll":18.41,"sofr":0.0401,"dividend":0.0,"cum_X":0.369124,"cum_R_simple":0.446467,"cum_c1":0.597541,"cum_c2":-0.155405,"cum_c3":-0.023737,"cum_c4":-0.040858,"cum_c5":-0.005315,"cum_resid":-0.003102,"contrib_c1":0.722745,"contrib_c2":-0.187967,"contrib_c3":-0.028711,"contrib_c4":-0.04942,"contrib_c5":-0.006429,"contrib_resid":-0.003751},{"date":"2025-12-03","tsla":446.74,"tsll":19.92,"sofr":0.0395,"dividend":0.0,"cum_X":0.447954,"cum_R_simple":0.565107,"cum_c1":0.677462,"cum_c2":-0.157002,"cum_c3":-0.023893,"cum_c4":-0.041148,"cum_c5":-0.005353,"cum_resid":-0.002112,"contrib_c1":0.854638,"contrib_c2":-0.198062,"contrib_c3":-0.030142,"contrib_c4":-0.05191,"contrib_c5":-0.006753,"contrib_resid":-0.002664},{"date":"2025-12-04","tsla":454.53,"tsll":20.57,"sofr":0.0392,"dividend":0.0,"cum_X":0.480064,"cum_R_simple":0.616177,"cum_c1":0.712037,"cum_c2":-0.1573,"cum_c3":-0.024049,"cum_c4":-0.041438,"cum_c5":-0.005391,"cum_resid":-0.003795,"contrib_c1":0.913922,"contrib_c2":-0.2019,"contrib_c3":-0.030867,"contrib_c4":-0.053187,"contrib_c5":-0.006919,"contrib_resid":-0.004871},{"date":"2025-12-05","tsla":455.0,"tsll":20.61,"sofr":0.0393,"dividend":0.0,"cum_X":0.482006,"cum_R_simple":0.61932,"cum_c1":0.714104,"cum_c2":-0.157301,"cum_c3":-0.024204,"cum_c4":-0.041728,"cum_c5":-0.005429,"cum_resid":-0.003435,"contrib_c1":0.917537,"contrib_c2":-0.202113,"contrib_c3":-0.0311,"contrib_c4":-0.053615,"contrib_c5":-0.006975,"contrib_resid":-0.004414},{"date":"2025-12-08","tsla":439.58,"tsll":19.23,"sofr":0.0395,"dividend":0.0,"cum_X":0.412702,"cum_R_simple":0.510894,"cum_c1":0.645148,"cum_c2":-0.15849,"cum_c3":-0.024361,"cum_c4":-0.042018,"cum_c5":-0.005466,"cum_resid":-0.002112,"contrib_c1":0.798646,"contrib_c2":-0.196199,"contrib_c3":-0.030157,"contrib_c4":-0.052015,"contrib_c5":-0.006767,"contrib_resid":-0.002614},{"date":"2025-12-09","tsla":445.17,"tsll":19.68,"sofr":0.0393,"dividend":0.0,"cum_X":0.435833,"cum_R_simple":0.54625,"cum_c1":0.670421,"cum_c2":-0.15865,"cum_c3":-0.024516,"cum_c4":-0.042307,"cum_c5":-0.005504,"cum_resid":-0.003611,"contrib_c1":0.840271,"contrib_c2":-0.198844,"contrib_c3":-0.030728,"contrib_c4":-0.053026,"contrib_c5":-0.006898,"contrib_resid":-0.004526},{"date":"2025-12-10","tsla":451.45,"tsll":19.66,"sofr":0.039,"dividend":0.57939,"cum_X":0.463861,"cum_R_simple":0.590201,"cum_c1":0.698438,"cum_c2":-0.158846,"cum_c3":-0.024671,"cum_c4":-0.042597,"cum_c5":-0.005542,"cum_resid":-0.002922,"contrib_c1":0.88867,"contrib_c2":-0.202111,"contrib_c3":-0.03139,"contrib_c4":-0.054199,"contrib_c5":-0.007051,"contrib_resid":-0.003717},{"date":"2025-12-11","tsla":446.89,"tsll":19.25,"sofr":0.0366,"dividend":0.0,"cum_X":0.442786,"cum_R_simple":0.557039,"cum_c1":0.678134,"cum_c2":-0.158949,"cum_c3":-0.024816,"cum_c4":-0.042887,"cum_c5":-0.005579,"cum_resid":-0.003117,"contrib_c1":0.853114,"contrib_c2":-0.199963,"contrib_c3":-0.031219,"contrib_c4":-0.053953,"contrib_c5":-0.007019,"contrib_resid":-0.003921},{"date":"2025-12-12","tsla":458.96,"tsll":20.28,"sofr":0.0367,"dividend":0.0,"cum_X":0.49491,"cum_R_simple":0.64035,"cum_c1":0.731435,"cum_c2":-0.159659,"cum_c3":-0.024961,"cum_c4":-0.043177,"cum_c5":-0.005617,"cum_resid":-0.003111,"contrib_c1":0.946384,"contrib_c2":-0.206579,"contrib_c3":-0.032296,"contrib_c4":-0.055865,"contrib_c5":-0.007268,"contrib_resid":-0.004025},{"date":"2025-12-15","tsla":475.31,"tsll":21.71,"sofr":0.0375,"dividend":0.0,"cum_X":0.563048,"cum_R_simple":0.756016,"cum_c1":0.801443,"cum_c2":-0.160885,"cum_c3":-0.02511,"cum_c4":-0.043466,"cum_c5":-0.005655,"cum_resid":-0.00328,"contrib_c1":1.076115,"contrib_c2":-0.216023,"contrib_c3":-0.033715,"contrib_c4":-0.058363,"contrib_c5":-0.007593,"contrib_resid":-0.004404},{"date":"2025-12-16","tsla":489.88,"tsll":23.03,"sofr":0.0369,"dividend":0.0,"cum_X":0.622072,"cum_R_simple":0.862784,"cum_c1":0.86183,"cum_c2":-0.161796,"cum_c3":-0.025256,"cum_c4":-0.043756,"cum_c5":-0.005692,"cum_resid":-0.003257,"contrib_c1":1.195316,"contrib_c2":-0.224404,"contrib_c3":-0.035028,"contrib_c4":-0.060688,"contrib_c5":-0.007895,"contrib_resid":-0.004517},{"date":"2025-12-17","tsla":467.26,"tsll":20.91,"sofr":0.0369,"dividend":0.0,"cum_X":0.525502,"cum_R_simple":0.691308,"cum_c1":0.76728,"cum_c2":-0.164031,"cum_c3":-0.025402,"cum_c4":-0.044046,"cum_c5":-0.00573,"cum_resid":-0.002569,"contrib_c1":1.009372,"contrib_c2":-0.215786,"contrib_c3":-0.033417,"contrib_c4":-0.057943,"contrib_c5":-0.007538,"contrib_resid":-0.00338},{"date":"2025-12-18","tsla":483.37,"tsll":22.34,"sofr":0.0366,"dividend":0.0,"cum_X":0.591653,"cum_R_simple":0.806974,"cum_c1":0.835074,"cum_c2":-0.16518,"cum_c3":-0.025547,"cum_c4":-0.044336,"cum_c5":-0.005768,"cum_resid":-0.002589,"contrib_c1":1.138982,"contrib_c2":-0.225294,"contrib_c3":-0.034844,"contrib_c4":-0.060471,"contrib_c5":-0.007867,"contrib_resid":-0.003532},{"date":"2025-12-19","tsla":481.2,"tsll":22.11,"sofr":0.0366,"dividend":0.0,"cum_X":0.581305,"cum_R_simple":0.78837,"cum_c1":0.826075,"cum_c2":-0.1652,"cum_c3":-0.025692,"cum_c4":-0.044626,"cum_c5":-0.005806,"cum_resid":-0.003447,"contrib_c1":1.120329,"contrib_c2":-0.224046,"contrib_c3":-0.034843,"contrib_c4":-0.060522,"contrib_c5":-0.007874,"contrib_resid":-0.004675},{"date":"2025-12-22","tsla":488.73,"tsll":22.83,"sofr":0.0368,"dividend":0.0,"cum_X":0.61335,"cum_R_simple":0.846607,"cum_c1":0.857129,"cum_c2":-0.165442,"cum_c3":-0.025838,"cum_c4":-0.044915,"cum_c5":-0.005843,"cum_resid":-0.001741,"contrib_c1":1.183096,"contrib_c2":-0.228359,"contrib_c3":-0.035664,"contrib_c4":-0.061997,"contrib_c5":-0.008065,"contrib_resid":-0.002404},{"date":"2025-12-23","tsla":485.56,"tsll":22.4,"sofr":0.0366,"dividend":0.11222,"cum_X":0.599333,"cum_R_simple":0.820904,"cum_c1":0.844114,"cum_c2":-0.165484,"cum_c3":-0.025982,"cum_c4":-0.045205,"cum_c5":-0.005881,"cum_resid":-0.002229,"contrib_c1":1.15618,"contrib_c2":-0.226663,"contrib_c3":-0.035588,"contrib_c4":-0.061917,"contrib_c5":-0.008055,"contrib_resid":-0.003053},{"date":"2025-12-24","tsla":485.4,"tsll":22.35,"sofr":0.0366,"dividend":0.0,"cum_X":0.597098,"cum_R_simple":0.816839,"cum_c1":0.843455,"cum_c2":-0.165484,"cum_c3":-0.026127,"cum_c4":-0.045495,"cum_c5":-0.005919,"cum_resid":-0.003332,"contrib_c1":1.153859,"contrib_c2":-0.226385,"contrib_c3":-0.035743,"contrib_c4":-0.062238,"contrib_c5":-0.008097,"contrib_resid":-0.004558},{"date":"2025-12-26","tsla":475.19,"tsll":21.39,"sofr":0.0376,"dividend":0.0,"cum_X":0.553195,"cum_R_simple":0.7388,"cum_c1":0.800938,"cum_c2":-0.165936,"cum_c3":-0.026276,"cum_c4":-0.045785,"cum_c5":-0.005956,"cum_resid":-0.003789,"contrib_c1":1.069664,"contrib_c2":-0.22161,"contrib_c3":-0.035092,"contrib_c4":-0.061146,"contrib_c5":-0.007955,"contrib_resid":-0.005061},{"date":"2025-12-29","tsla":459.64,"tsll":19.99,"sofr":0.0377,"dividend":0.0,"cum_X":0.485504,"cum_R_simple":0.624994,"cum_c1":0.734396,"cum_c2":-0.167043,"cum_c3":-0.026426,"cum_c4":-0.046074,"cum_c5":-0.005994,"cum_resid":-0.003355,"contrib_c1":0.945395,"contrib_c2":-0.215036,"contrib_c3":-0.034018,"contrib_c4":-0.059312,"contrib_c5":-0.007716,"contrib_resid":-0.004319},{"date":"2025-12-30","tsla":454.43,"tsll":19.53,"sofr":0.0371,"dividend":0.0,"cum_X":0.462224,"cum_R_simple":0.5876,"cum_c1":0.711596,"cum_c2":-0.167173,"cum_c3":-0.026573,"cum_c4":-0.046364,"cum_c5":-0.006032,"cum_resid":-0.003231,"contrib_c1":0.904615,"contrib_c2":-0.212518,"contrib_c3":-0.03378,"contrib_c4":-0.05894,"contrib_c5":-0.007668,"contrib_resid":-0.004108},{"date":"2025-12-31","tsla":449.72,"tsll":19.11,"sofr":0.0387,"dividend":0.0,"cum_X":0.440484,"cum_R_simple":0.553458,"cum_c1":0.690759,"cum_c2":-0.167281,"cum_c3":-0.026726,"cum_c4":-0.046654,"cum_c5":-0.006069,"cum_resid":-0.003545,"contrib_c1":0.867924,"contrib_c2":-0.210186,"contrib_c3":-0.03358,"contrib_c4":-0.05862,"contrib_c5":-0.007626,"contrib_resid":-0.004454},{"date":"2026-01-02","tsla":438.07,"tsll":18.12,"sofr":0.0375,"dividend":0.0,"cum_X":0.387288,"cum_R_simple":0.472981,"cum_c1":0.638266,"cum_c2":-0.16797,"cum_c3":-0.026874,"cum_c4":-0.046944,"cum_c5":-0.006107,"cum_resid":-0.003082,"contrib_c1":0.779491,"contrib_c2":-0.205136,"contrib_c3":-0.032821,"contrib_c4":-0.057331,"contrib_c5":-0.007458,"contrib_resid":-0.003764},{"date":"2026-01-05","tsla":451.67,"tsll":19.22,"sofr":0.037,"dividend":0.0,"cum_X":0.446223,"cum_R_simple":0.5624,"cum_c1":0.699412,"cum_c2":-0.168905,"cum_c3":-0.027021,"cum_c4":-0.047234,"cum_c5":-0.006145,"cum_resid":-0.003885,"contrib_c1":0.881509,"contrib_c2":-0.21288,"contrib_c3":-0.034056,"contrib_c4":-0.059531,"contrib_c5":-0.007745,"contrib_resid":-0.004896},{"date":"2026-01-06","tsla":432.96,"tsll":17.65,"sofr":0.0366,"dividend":0.0,"cum_X":0.361008,"cum_R_simple":0.434775,"cum_c1":0.614799,"cum_c2":-0.170695,"cum_c3":-0.027166,"cum_c4":-0.047523,"cum_c5":-0.006183,"cum_resid":-0.002225,"contrib_c1":0.740425,"contrib_c2":-0.205574,"contrib_c3":-0.032717,"contrib_c4":-0.057234,"contrib_c5":-0.007446,"contrib_resid":-0.00268},{"date":"2026-01-07","tsla":431.41,"tsll":17.51,"sofr":0.0365,"dividend":0.0,"cum_X":0.353044,"cum_R_simple":0.423394,"cum_c1":0.607627,"cum_c2":-0.170708,"cum_c3":-0.02731,"cum_c4":-0.047813,"cum_c5":-0.00622,"cum_resid":-0.002531,"contrib_c1":0.728706,"contrib_c2":-0.204724,"contrib_c3":-0.032752,"contrib_c4":-0.057341,"contrib_c5":-0.00746,"contrib_resid":-0.003035},{"date":"2026-01-08","tsla":435.8,"tsll":17.85,"sofr":0.0364,"dividend":0.0,"cum_X":0.372275,"cum_R_simple":0.451033,"cum_c1":0.627876,"cum_c2":-0.17081,"cum_c3":-0.027455,"cum_c4":-0.048103,"cum_c5":-0.006258,"cum_resid":-0.002975,"contrib_c1":0.760707,"contrib_c2":-0.206946,"contrib_c3":-0.033263,"contrib_c4":-0.058279,"contrib_c5":-0.007582,"contrib_resid":-0.003604},{"date":"2026-01-09","tsla":445.01,"tsll":18.57,"sofr":0.0364,"dividend":0.0,"cum_X":0.411819,"cum_R_simple":0.509562,"cum_c1":0.669702,"cum_c2":-0.171248,"cum_c3":-0.027599,"cum_c4":-0.048393,"cum_c5":-0.006296,"cum_resid":-0.004348,"contrib_c1":0.828651,"contrib_c2":-0.211892,"contrib_c3":-0.034149,"contrib_c4":-0.059878,"contrib_c5":-0.00779,"contrib_resid":-0.005381},{"date":"2026-01-12","tsla":448.96,"tsll":18.89,"sofr":0.0364,"dividend":0.0,"cum_X":0.428905,"cum_R_simple":0.535575,"cum_c1":0.687376,"cum_c2":-0.171326,"cum_c3":-0.027743,"cum_c4":-0.048682,"cum_c5":-0.006333,"cum_resid":-0.004387,"contrib_c1":0.858329,"contrib_c2":-0.213935,"contrib_c3":-0.034643,"contrib_c4":-0.06079,"contrib_c5":-0.007908,"contrib_resid":-0.005479},{"date":"2026-01-13","tsla":447.2,"tsll":18.74,"sofr":0.0365,"dividend":0.0,"cum_X":0.420932,"cum_R_simple":0.523381,"cum_c1":0.679521,"cum_c2":-0.171341,"cum_c3":-0.027887,"cum_c4":-0.048972,"cum_c5":-0.006371,"cum_resid":-0.004017,"contrib_c1":0.844906,"contrib_c2":-0.213043,"contrib_c3":-0.034675,"contrib_c4":-0.060891,"contrib_c5":-0.007922,"contrib_resid":-0.004994},{"date":"2026-01-14","tsla":439.2,"tsll":18.07,"sofr":0.0364,"dividend":0.0,"cum_X":0.384525,"cum_R_simple":0.468916,"cum_c1":0.643419,"cum_c2":-0.171667,"cum_c3":-0.028032,"cum_c4":-0.049262,"cum_c5":-0.006409,"cum_resid":-0.003524,"contrib_c1":0.784629,"contrib_c2":-0.209343,"contrib_c3":-0.034184,"contrib_c4":-0.060073,"contrib_c5":-0.007815,"contrib_resid":-0.004298},{"date":"2026-01-15","tsla":438.57,"tsll":17.98,"sofr":0.0366,"dividend":0.0,"cum_X":0.379532,"cum_R_simple":0.4616,"cum_c1":0.640548,"cum_c2":-0.171669,"cum_c3":-0.028176,"cum_c4":-0.049552,"cum_c5":-0.006446,"cum_resid":-0.005172,"contrib_c1":0.779057,"contrib_c2":-0.20879,"contrib_c3":-0.034269,"contrib_c4":-0.060267,"contrib_c5":-0.00784,"contrib_resid":-0.00629},{"date":"2026-01-16","tsla":437.5,"tsll":17.91,"sofr":0.0365,"dividend":0.0,"cum_X":0.375631,"cum_R_simple":0.45591,"cum_c1":0.635662,"cum_c2":-0.171675,"cum_c3":-0.028321,"cum_c4":-0.049842,"cum_c5":-0.006484,"cum_resid":-0.003709,"contrib_c1":0.771514,"contrib_c2":-0.208365,"contrib_c3":-0.034374,"contrib_c4":-0.060493,"contrib_c5":-0.00787,"contrib_resid":-0.004502},{"date":"2026-01-20","tsla":419.25,"tsll":16.41,"sofr":0.0364,"dividend":0.0,"cum_X":0.288163,"cum_R_simple":0.333974,"cum_c1":0.550444,"cum_c2":-0.173491,"cum_c3":-0.028465,"cum_c4":-0.050131,"cum_c5":-0.006522,"cum_resid":-0.003672,"contrib_c1":0.637952,"contrib_c2":-0.201072,"contrib_c3":-0.032991,"contrib_c4":-0.058101,"contrib_c5":-0.007559,"contrib_resid":-0.004256},{"date":"2026-01-21","tsla":431.44,"tsll":17.33,"sofr":0.0363,"dividend":0.0,"cum_X":0.342711,"cum_R_simple":0.408762,"cum_c1":0.607766,"cum_c2":-0.174312,"cum_c3":-0.028609,"cum_c4":-0.050421,"cum_c5":-0.00656,"cum_resid":-0.005153,"contrib_c1":0.7249,"contrib_c2":-0.207907,"contrib_c3":-0.034123,"contrib_c4":-0.060139,"contrib_c5":-0.007824,"contrib_resid":-0.006146},{"date":"2026-01-22","tsla":449.36,"tsll":18.77,"sofr":0.0364,"dividend":0.0,"cum_X":0.422532,"cum_R_simple":0.52582,"cum_c1":0.689157,"cum_c2":-0.175968,"cum_c3":-0.028753,"cum_c4":-0.050711,"cum_c5":-0.006597,"cum_resid":-0.004596,"contrib_c1":0.857622,"contrib_c2":-0.218984,"contrib_c3":-0.035782,"contrib_c4":-0.063107,"contrib_c5":-0.00821,"contrib_resid":-0.00572},{"date":"2026-01-23","tsla":449.06,"tsll":18.72,"sofr":0.0365,"dividend":0.0,"cum_X":0.419864,"cum_R_simple":0.521755,"cum_c1":0.687822,"cum_c2":-0.175969,"cum_c3":-0.028898,"cum_c4":-0.051001,"cum_c5":-0.006635,"cum_resid":-0.005456,"contrib_c1":0.854739,"contrib_c2":-0.218672,"contrib_c3":-0.03591,"contrib_c4":-0.063377,"contrib_c5":-0.008245,"contrib_resid":-0.00678},{"date":"2026-01-26","tsla":435.2,"tsll":17.58,"sofr":0.0366,"dividend":0.0,"cum_X":0.357034,"cum_R_simple":0.429084,"cum_c1":0.62512,"cum_c2":-0.176951,"cum_c3":-0.029043,"cum_c4":-0.05129,"cum_c5":-0.006673,"cum_resid":-0.004129,"contrib_c1":0.751271,"contrib_c2":-0.212661,"contrib_c3":-0.034903,"contrib_c4":-0.061641,"contrib_c5":-0.008019,"contrib_resid":-0.004963},{"date":"2026-01-27","tsla":430.9,"tsll":17.22,"sofr":0.0366,"dividend":0.0,"cum_X":0.336343,"cum_R_simple":0.39982,"cum_c1":0.605261,"cum_c2":-0.17705,"cum_c3":-0.029188,"cum_c4":-0.05158,"cum_c5":-0.00671,"cum_resid":-0.004389,"contrib_c1":0.719488,"contrib_c2":-0.210464,"contrib_c3":-0.034696,"contrib_c4":-0.061315,"contrib_c5":-0.007977,"contrib_resid":-0.005218},{"date":"2026-01-28","tsla":431.46,"tsll":17.24,"sofr":0.0364,"dividend":0.0,"cum_X":0.337504,"cum_R_simple":0.401445,"cum_c1":0.607858,"cum_c2":-0.177052,"cum_c3":-0.029332,"cum_c4":-0.05187,"cum_c5":-0.006748,"cum_resid":-0.005353,"contrib_c1":0.723019,"contrib_c2":-0.210595,"contrib_c3":-0.034889,"contrib_c4":-0.061697,"contrib_c5":-0.008026,"contrib_resid":-0.006367},{"date":"2026-01-29","tsla":416.56,"tsll":16.06,"sofr":0.0365,"dividend":0.0,"cum_X":0.266604,"cum_R_simple":0.305523,"cum_c1":0.53757,"cum_c2":-0.178287,"cum_c3":-0.029476,"cum_c4":-0.05216,"cum_c5":-0.006786,"cum_resid":-0.004258,"contrib_c1":0.616045,"contrib_c2":-0.204313,"contrib_c3":-0.033779,"contrib_c4":-0.059774,"contrib_c5":-0.007776,"contrib_resid":-0.004879},{"date":"2026-01-30","tsla":430.41,"tsll":17.11,"sofr":0.0368,"dividend":0.0,"cum_X":0.329935,"cum_R_simple":0.390878,"cum_c1":0.602985,"cum_c2":-0.179357,"cum_c3":-0.029622,"cum_c4":-0.052449,"cum_c5":-0.006823,"cum_resid":-0.004799,"contrib_c1":0.714363,"contrib_c2":-0.212486,"contrib_c3":-0.035094,"contrib_c4":-0.062138,"contrib_c5":-0.008084,"contrib_resid":-0.005685},{"date":"2026-02-02","tsla":421.81,"tsll":16.42,"sofr":0.0369,"dividend":0.0,"cum_X":0.288772,"cum_R_simple":0.334787,"cum_c1":0.562619,"cum_c2":-0.179764,"cum_c3":-0.029768,"cum_c4":-0.052739,"cum_c5":-0.006861,"cum_resid":-0.004714,"contrib_c1":0.652271,"contrib_c2":-0.208409,"contrib_c3":-0.034512,"contrib_c4":-0.061143,"contrib_c5":-0.007954,"contrib_resid":-0.005465},{"date":"2026-02-03","tsla":421.96,"tsll":16.4,"sofr":0.0369,"dividend":0.0,"cum_X":0.287553,"cum_R_simple":0.333162,"cum_c1":0.56333,"cum_c2":-0.179764,"cum_c3":-0.029914,"cum_c4":-0.053029,"cum_c5":-0.006899,"cum_resid":-0.00617,"contrib_c1":0.652679,"contrib_c2":-0.208276,"contrib_c3":-0.034659,"contrib_c4":-0.06144,"contrib_c5":-0.007993,"contrib_resid":-0.007149},{"date":"2026-02-04","tsla":406.01,"tsll":15.17,"sofr":0.0365,"dividend":0.0,"cum_X":0.209592,"cum_R_simple":0.233174,"cum_c1":0.486264,"cum_c2":-0.181249,"cum_c3":-0.030059,"cum_c4":-0.053319,"cum_c5":-0.006937,"cum_resid":-0.00511,"contrib_c1":0.540978,"contrib_c2":-0.201643,"contrib_c3":-0.033441,"contrib_c4":-0.059318,"contrib_c5":-0.007717,"contrib_resid":-0.005684},{"date":"2026-02-05","tsla":397.21,"tsll":14.5,"sofr":0.0365,"dividend":0.0,"cum_X":0.164421,"cum_R_simple":0.17871,"cum_c1":0.442439,"cum_c2":-0.181729,"cum_c3":-0.030203,"cum_c4":-0.053609,"cum_c5":-0.006974,"cum_resid":-0.005503,"contrib_c1":0.48089,"contrib_c2":-0.197523,"contrib_c3":-0.032828,"contrib_c4":-0.058268,"contrib_c5":-0.00758,"contrib_resid":-0.005981},{"date":"2026-02-06","tsla":411.11,"tsll":15.5,"sofr":0.0364,"dividend":0.0,"cum_X":0.231112,"cum_R_simple":0.26,"cum_c1":0.51123,"cum_c2":-0.182912,"cum_c3":-0.030348,"cum_c4":-0.053898,"cum_c5":-0.007012,"cum_resid":-0.005948,"contrib_c1":0.575133,"contrib_c2":-0.205776,"contrib_c3":-0.034141,"contrib_c4":-0.060636,"contrib_c5":-0.007888,"contrib_resid":-0.006692},{"date":"2026-02-09","tsla":417.32,"tsll":15.97,"sofr":0.0363,"dividend":0.0,"cum_X":0.260984,"cum_R_simple":0.298207,"cum_c1":0.541215,"cum_c2":-0.183137,"cum_c3":-0.030491,"cum_c4":-0.054188,"cum_c5":-0.00705,"cum_resid":-0.005366,"contrib_c1":0.618406,"contrib_c2":-0.209257,"contrib_c3":-0.03484,"contrib_c4":-0.061917,"contrib_c5":-0.008055,"contrib_resid":-0.006131},{"date":"2026-02-10","tsla":425.21,"tsll":16.56,"sofr":0.0365,"dividend":0.0,"cum_X":0.297262,"cum_R_simple":0.346168,"cum_c1":0.578675,"cum_c2":-0.183488,"cum_c3":-0.030636,"cum_c4":-0.054478,"cum_c5":-0.007087,"cum_resid":-0.005724,"contrib_c1":0.673879,"contrib_c2":-0.213675,"contrib_c3":-0.035676,"contrib_c4":-0.063441,"contrib_c5":-0.008253,"contrib_resid":-0.006666},{"date":"2026-02-11","tsla":428.27,"tsll":16.8,"sofr":0.0365,"dividend":0.0,"cum_X":0.311651,"cum_R_simple":0.365678,"cum_c1":0.593016,"cum_c2":-0.183539,"cum_c3":-0.03078,"cum_c4":-0.054768,"cum_c5":-0.007125,"cum_resid":-0.005153,"contrib_c1":0.69582,"contrib_c2":-0.215357,"contrib_c3":-0.036116,"contrib_c4":-0.064262,"contrib_c5":-0.00836,"contrib_resid":-0.006047},{"date":"2026-02-12","tsla":417.07,"tsll":15.89,"sofr":0.0365,"dividend":0.0,"cum_X":0.255962,"cum_R_simple":0.291704,"cum_c1":0.540017,"cum_c2":-0.184241,"cum_c3":-0.030925,"cum_c4":-0.055057,"cum_c5":-0.007163,"cum_resid":-0.006668,"contrib_c1":0.615423,"contrib_c2":-0.209968,"contrib_c3":-0.035243,"contrib_c4":-0.062746,"contrib_c5":-0.008163,"contrib_resid":-0.0076},{"date":"2026-02-13","tsla":417.44,"tsll":15.93,"sofr":0.0366,"dividend":0.0,"cum_X":0.258476,"cum_R_simple":0.294955,"cum_c1":0.54179,"cum_c2":-0.184242,"cum_c3":-0.03107,"cum_c4":-0.055347,"cum_c5":-0.0072,"cum_resid":-0.005455,"contrib_c1":0.618254,"contrib_c2":-0.210245,"contrib_c3":-0.035455,"contrib_c4":-0.063158,"contrib_c5":-0.008217,"contrib_resid":-0.006224},{"date":"2026-02-17","tsla":410.63,"tsll":15.41,"sofr":0.0371,"dividend":0.0,"cum_X":0.225289,"cum_R_simple":0.252684,"cum_c1":0.508894,"cum_c2":-0.184513,"cum_c3":-0.031217,"cum_c4":-0.055637,"cum_c5":-0.007238,"cum_resid":-0.005001,"contrib_c1":0.570776,"contrib_c2":-0.20695,"contrib_c3":-0.035013,"contrib_c4":-0.062403,"contrib_c5":-0.008118,"contrib_resid":-0.005609},{"date":"2026-02-18","tsla":411.32,"tsll":15.43,"sofr":0.0373,"dividend":0.0,"cum_X":0.226586,"cum_R_simple":0.25431,"cum_c1":0.512252,"cum_c2":-0.184516,"cum_c3":-0.031365,"cum_c4":-0.055927,"cum_c5":-0.007276,"cum_resid":-0.006583,"contrib_c1":0.574929,"contrib_c2":-0.207092,"contrib_c3":-0.035202,"contrib_c4":-0.06277,"contrib_c5":-0.008166,"contrib_resid":-0.007389},{"date":"2026-02-19","tsla":411.71,"tsll":15.46,"sofr":0.0367,"dividend":0.0,"cum_X":0.228528,"cum_R_simple":0.256749,"cum_c1":0.514147,"cum_c2":-0.184516,"cum_c3":-0.03151,"cum_c4":-0.056217,"cum_c5":-0.007313,"cum_resid":-0.006063,"contrib_c1":0.577639,"contrib_c2":-0.207302,"contrib_c3":-0.035401,"contrib_c4":-0.063159,"contrib_c5":-0.008217,"contrib_resid":-0.006812},{"date":"2026-02-20","tsla":411.82,"tsll":15.44,"sofr":0.0366,"dividend":0.0,"cum_X":0.227233,"cum_R_simple":0.255123,"cum_c1":0.514681,"cum_c2":-0.184517,"cum_c3":-0.031655,"cum_c4":-0.056506,"cum_c5":-0.007351,"cum_resid":-0.007419,"contrib_c1":0.577851,"contrib_c2":-0.207163,"contrib_c3":-0.03554,"contrib_c4":-0.063442,"contrib_c5":-0.008253,"contrib_resid":-0.00833},{"date":"2026-02-23","tsla":399.83,"tsll":14.53,"sofr":0.0366,"dividend":0.0,"cum_X":0.166487,"cum_R_simple":0.181149,"cum_c1":0.455588,"cum_c2":-0.18539,"cum_c3":-0.0318,"cum_c4":-0.056796,"cum_c5":-0.007389,"cum_resid":-0.007726,"contrib_c1":0.495708,"contrib_c2":-0.201715,"contrib_c3":-0.0346,"contrib_c4":-0.061798,"contrib_c5":-0.00804,"contrib_resid":-0.008406},{"date":"2026-02-24","tsla":409.38,"tsll":15.25,"sofr":0.0367,"dividend":0.0,"cum_X":0.214851,"cum_R_simple":0.239678,"cum_c1":0.502796,"cum_c2":-0.185947,"cum_c3":-0.031945,"cum_c4":-0.057086,"cum_c5":-0.007427,"cum_resid":-0.005541,"contrib_c1":0.560895,"contrib_c2":-0.207433,"contrib_c3":-0.035636,"contrib_c4":-0.063682,"contrib_c5":-0.008285,"contrib_resid":-0.006181},{"date":"2026-02-25","tsla":417.4,"tsll":15.84,"sofr":0.0367,"dividend":0.0,"cum_X":0.25281,"cum_R_simple":0.287639,"cum_c1":0.541599,"cum_c2":-0.186323,"cum_c3":-0.03209,"cum_c4":-0.057376,"cum_c5":-0.007464,"cum_resid":-0.005535,"contrib_c1":0.616213,"contrib_c2":-0.211992,"contrib_c3":-0.036511,"contrib_c4":-0.06528,"contrib_c5":-0.008493,"contrib_resid":-0.006297},{"date":"2026-02-26","tsla":408.58,"tsll":15.17,"sofr":0.0367,"dividend":0.0,"cum_X":0.209592,"cum_R_simple":0.233174,"cum_c1":0.498884,"cum_c2":-0.186779,"cum_c3":-0.032236,"cum_c4":-0.057665,"cum_c5":-0.007502,"cum_resid":-0.00511,"contrib_c1":0.555017,"contrib_c2":-0.207795,"contrib_c3":-0.035863,"contrib_c4":-0.064154,"contrib_c5":-0.008346,"contrib_resid":-0.005685},{"date":"2026-02-27","tsla":402.51,"tsll":14.7,"sofr":0.0368,"dividend":0.0,"cum_X":0.178119,"cum_R_simple":0.194968,"cum_c1":0.468949,"cum_c2":-0.187003,"cum_c3":-0.032382,"cum_c4":-0.057955,"cum_c5":-0.00754,"cum_resid":-0.005949,"contrib_c1":0.513307,"contrib_c2":-0.204692,"contrib_c3":-0.035445,"contrib_c4":-0.063437,"contrib_c5":-0.008253,"contrib_resid":-0.006512},{"date":"2026-03-02","tsla":403.32,"tsll":14.74,"sofr":0.0371,"dividend":0.0,"cum_X":0.180837,"cum_R_simple":0.19822,"cum_c1":0.472969,"cum_c2":-0.187007,"cum_c3":-0.032528,"cum_c4":-0.058245,"cum_c5":-0.007577,"cum_resid":-0.006774,"contrib_c1":0.518433,"contrib_c2":-0.204983,"contrib_c3":-0.035655,"contrib_c4":-0.063844,"contrib_c5":-0.008306,"contrib_resid":-0.007426},{"date":"2026-03-03","tsla":392.36,"tsll":13.95,"sofr":0.037,"dividend":0.0,"cum_X":0.125751,"cum_R_simple":0.134,"cum_c1":0.417843,"cum_c2":-0.187767,"cum_c3":-0.032675,"cum_c4":-0.058535,"cum_c5":-0.007615,"cum_resid":-0.005499,"contrib_c1":0.445252,"contrib_c2":-0.200084,"contrib_c3":-0.034818,"contrib_c4":-0.062374,"contrib_c5":-0.008115,"contrib_resid":-0.00586},{"date":"2026-03-04","tsla":405.94,"tsll":14.92,"sofr":0.0367,"dividend":0.0,"cum_X":0.192975,"cum_R_simple":0.212852,"cum_c1":0.485919,"cum_c2":-0.188926,"cum_c3":-0.03282,"cum_c4":-0.058825,"cum_c5":-0.007653,"cum_resid":-0.004722,"contrib_c1":0.535972,"contrib_c2":-0.208386,"contrib_c3":-0.036201,"contrib_c4":-0.064884,"contrib_c5":-0.008441,"contrib_resid":-0.005208},{"date":"2026-03-05","tsla":405.4,"tsll":14.86,"sofr":0.0366,"dividend":0.0,"cum_X":0.188945,"cum_R_simple":0.207974,"cum_c1":0.483264,"cum_c2":-0.188927,"cum_c3":-0.032965,"cum_c4":-0.059114,"cum_c5":-0.00769,"cum_resid":-0.005621,"contrib_c1":0.531935,"contrib_c2":-0.207955,"contrib_c3":-0.036285,"contrib_c4":-0.065068,"contrib_c5":-0.008465,"contrib_resid":-0.006187},{"date":"2026-03-06","tsla":396.73,"tsll":14.21,"sofr":0.0365,"dividend":0.0,"cum_X":0.143866,"cum_R_simple":0.154729,"cum_c1":0.440021,"cum_c2":-0.189395,"cum_c3":-0.03311,"cum_c4":-0.059404,"cum_c5":-0.007728,"cum_resid":-0.006518,"contrib_c1":0.473247,"contrib_c2":-0.203696,"contrib_c3":-0.03561,"contrib_c4":-0.06389,"contrib_c5":-0.008312,"contrib_resid":-0.00701},{"date":"2026-03-09","tsla":398.6,"tsll":14.34,"sofr":0.0365,"dividend":0.0,"cum_X":0.153639,"cum_R_simple":0.166069,"cum_c1":0.449426,"cum_c2":-0.189417,"cum_c3":-0.033254,"cum_c4":-0.059694,"cum_c5":-0.007766,"cum_resid":-0.005656,"contrib_c1":0.485788,"contrib_c2":-0.204743,"contrib_c3":-0.035945,"contrib_c4":-0.064524,"contrib_c5":-0.008394,"contrib_resid":-0.006113},{"date":"2026-03-10","tsla":399.25,"tsll":14.38,"sofr":0.0364,"dividend":0.0,"cum_X":0.156458,"cum_R_simple":0.169362,"cum_c1":0.452684,"cum_c2":-0.18942,"cum_c3":-0.033399,"cum_c4":-0.059984,"cum_c5":-0.007804,"cum_resid":-0.005621,"contrib_c1":0.490019,"contrib_c2":-0.205042,"contrib_c3":-0.036153,"contrib_c4":-0.064931,"contrib_c5":-0.008447,"contrib_resid":-0.006085},{"date":"2026-03-11","tsla":407.82,"tsll":14.99,"sofr":0.0364,"dividend":0.0,"cum_X":0.197655,"cum_R_simple":0.218542,"cum_c1":0.495161,"cum_c2":-0.189871,"cum_c3":-0.033543,"cum_c4":-0.060273,"cum_c5":-0.007841,"cum_resid":-0.005977,"contrib_c1":0.547486,"contrib_c2":-0.209935,"contrib_c3":-0.037087,"contrib_c4":-0.066643,"contrib_c5":-0.00867,"contrib_resid":-0.006609},{"date":"2026-03-12","tsla":395.01,"tsll":14.06,"sofr":0.0365,"dividend":0.0,"cum_X":0.133606,"cum_R_simple":0.142942,"cum_c1":0.431331,"cum_c2":-0.190889,"cum_c3":-0.033687,"cum_c4":-0.060563,"cum_c5":-0.007879,"cum_resid":-0.004706,"contrib_c1":0.461472,"contrib_c2":-0.204229,"contrib_c3":-0.036041,"contrib_c4":-0.064795,"contrib_c5":-0.00843,"contrib_resid":-0.005035},{"date":"2026-03-13","tsla":391.2,"tsll":13.77,"sofr":0.0365,"dividend":0.0,"cum_X":0.112764,"cum_R_simple":0.119368,"cum_c1":0.411947,"cum_c2":-0.190983,"cum_c3":-0.033832,"cum_c4":-0.060853,"cum_c5":-0.007917,"cum_resid":-0.005598,"contrib_c1":0.436071,"contrib_c2":-0.202168,"contrib_c3":-0.035813,"contrib_c4":-0.064417,"contrib_c5":-0.00838,"contrib_resid":-0.005925},{"date":"2026-03-16","tsla":395.56,"tsll":14.07,"sofr":0.037,"dividend":0.0,"cum_X":0.134317,"cum_R_simple":0.143755,"cum_c1":0.434114,"cum_c2":-0.191106,"cum_c3":-0.033978,"cum_c4":-0.061143,"cum_c5":-0.007954,"cum_resid":-0.005615,"contrib_c1":0.464618,"contrib_c2":-0.204535,"contrib_c3":-0.036366,"contrib_c4":-0.065439,"contrib_c5":-0.008513,"contrib_resid":-0.00601},{"date":"2026-03-17","tsla":399.27,"tsll":14.32,"sofr":0.0365,"dividend":0.0,"cum_X":0.151929,"cum_R_simple":0.164078,"cum_c1":0.452784,"cum_c2":-0.191193,"cum_c3":-0.034123,"cum_c4":-0.061433,"cum_c5":-0.007992,"cum_resid":-0.006115,"contrib_c1":0.48899,"contrib_c2":-0.206481,"contrib_c3":-0.036851,"contrib_c4":-0.066345,"contrib_c5":-0.008631,"contrib_resid":-0.006604},{"date":"2026-03-18","tsla":392.78,"tsll":13.86,"sofr":0.0362,"dividend":0.0,"cum_X":0.119279,"cum_R_simple":0.126684,"cum_c1":0.420008,"cum_c2":-0.191462,"cum_c3":-0.034266,"cum_c4":-0.061722,"cum_c5":-0.00803,"cum_resid":-0.005249,"contrib_c1":0.446083,"contrib_c2":-0.203348,"contrib_c3":-0.036394,"contrib_c4":-0.065554,"contrib_c5":-0.008528,"contrib_resid":-0.005575},{"date":"2026-03-19","tsla":380.3,"tsll":12.97,"sofr":0.0362,"dividend":0.0,"cum_X":0.052911,"cum_R_simple":0.054336,"cum_c1":0.35543,"cum_c2":-0.192504,"cum_c3":-0.03441,"cum_c4":-0.062012,"cum_c5":-0.008067,"cum_resid":-0.005525,"contrib_c1":0.365001,"contrib_c2":-0.197688,"contrib_c3":-0.035336,"contrib_c4":-0.063682,"contrib_c5":-0.008285,"contrib_resid":-0.005674},{"date":"2026-03-20","tsla":367.96,"tsll":12.12,"sofr":0.0362,"dividend":0.0,"cum_X":-0.014871,"cum_R_simple":-0.014761,"cum_c1":0.289457,"cum_c2":-0.193592,"cum_c3":-0.034553,"cum_c4":-0.062302,"cum_c5":-0.008105,"cum_resid":-0.005776,"contrib_c1":0.287316,"contrib_c2":-0.19216,"contrib_c3":-0.034297,"contrib_c4":-0.061841,"contrib_c5":-0.008045,"contrib_resid":-0.005733},{"date":"2026-03-23","tsla":380.85,"tsll":12.95,"sofr":0.0362,"dividend":0.0,"cum_X":0.051368,"cum_R_simple":0.05271,"cum_c1":0.35832,"cum_c2":-0.194778,"cum_c3":-0.034696,"cum_c4":-0.062592,"cum_c5":-0.008143,"cum_resid":-0.006743,"contrib_c1":0.367683,"contrib_c2":-0.199867,"contrib_c3":-0.035603,"contrib_c4":-0.064227,"contrib_c5":-0.008356,"contrib_resid":-0.00692},{"date":"2026-03-24","tsla":383.03,"tsll":13.0,"sofr":0.0363,"dividend":0.09941,"cum_X":0.062839,"cum_R_simple":0.064856,"cum_c1":0.369735,"cum_c2":-0.194811,"cum_c3":-0.03484,"cum_c4":-0.062881,"cum_c5":-0.008181,"cum_resid":-0.006184,"contrib_c1":0.381599,"contrib_c2":-0.201062,"contrib_c3":-0.035958,"contrib_c4":-0.064899,"contrib_c5":-0.008443,"contrib_resid":-0.006382},{"date":"2026-03-25","tsla":385.95,"tsll":13.18,"sofr":0.0364,"dividend":0.0,"cum_X":0.07659,"cum_R_simple":0.0796,"cum_c1":0.384924,"cum_c2":-0.194868,"cum_c3":-0.034984,"cum_c4":-0.063171,"cum_c5":-0.008218,"cum_resid":-0.007092,"contrib_c1":0.400049,"contrib_c2":-0.202525,"contrib_c3":-0.036359,"contrib_c4":-0.065653,"contrib_c5":-0.008541,"contrib_resid":-0.007371},{"date":"2026-03-26","tsla":372.11,"tsll":12.25,"sofr":0.0365,"dividend":0.0,"cum_X":0.003416,"cum_R_simple":0.003422,"cum_c1":0.311888,"cum_c2":-0.196202,"cum_c3":-0.035129,"cum_c4":-0.063461,"cum_c5":-0.008256,"cum_resid":-0.005424,"contrib_c1":0.312421,"contrib_c2":-0.196537,"contrib_c3":-0.035189,"contrib_c4":-0.063569,"contrib_c5":-0.00827,"contrib_resid":-0.005434},{"date":"2026-03-27","tsla":361.83,"tsll":11.56,"sofr":0.0363,"dividend":0.0,"cum_X":-0.054559,"cum_R_simple":-0.053098,"cum_c1":0.255858,"cum_c2":-0.196987,"cum_c3":-0.035273,"cum_c4":-0.063751,"cum_c5":-0.008294,"cum_resid":-0.006113,"contrib_c1":0.249003,"contrib_c2":-0.191709,"contrib_c3":-0.034328,"contrib_c4":-0.062043,"contrib_c5":-0.008071,"contrib_resid":-0.00595},{"date":"2026-03-30","tsla":355.28,"tsll":11.13,"sofr":0.0363,"dividend":0.0,"cum_X":-0.092466,"cum_R_simple":-0.08832,"cum_c1":0.219321,"cum_c2":-0.19732,"cum_c3":-0.035416,"cum_c4":-0.064041,"cum_c5":-0.008331,"cum_resid":-0.006679,"contrib_c1":0.209487,"contrib_c2":-0.188472,"contrib_c3":-0.033828,"contrib_c4":-0.061169,"contrib_c5":-0.007958,"contrib_resid":-0.006379},{"date":"2026-03-31","tsla":371.75,"tsll":12.15,"sofr":0.0368,"dividend":0.0,"cum_X":-0.004781,"cum_R_simple":-0.00477,"cum_c1":0.309952,"cum_c2":-0.199374,"cum_c3":-0.035562,"cum_c4":-0.06433,"cum_c5":-0.008369,"cum_resid":-0.007098,"contrib_c1":0.309212,"contrib_c2":-0.198898,"contrib_c3":-0.035477,"contrib_c4":-0.064177,"contrib_c5":-0.008349,"contrib_resid":-0.007081},{"date":"2026-04-01","tsla":381.26,"tsll":12.77,"sofr":0.0365,"dividend":0.0,"cum_X":0.044988,"cum_R_simple":0.046016,"cum_c1":0.360472,"cum_c2":-0.200012,"cum_c3":-0.035707,"cum_c4":-0.06462,"cum_c5":-0.008407,"cum_resid":-0.006738,"contrib_c1":0.368703,"contrib_c2":-0.204579,"contrib_c3":-0.036522,"contrib_c4":-0.066096,"contrib_c5":-0.008599,"contrib_resid":-0.006892},{"date":"2026-04-02","tsla":360.59,"tsll":11.37,"sofr":0.0366,"dividend":0.0,"cum_X":-0.071132,"cum_R_simple":-0.068661,"cum_c1":0.248992,"cum_c2":-0.203119,"cum_c3":-0.035852,"cum_c4":-0.06491,"cum_c5":-0.008444,"cum_resid":-0.007799,"contrib_c1":0.240343,"contrib_c2":-0.196063,"contrib_c3":-0.034606,"contrib_c4":-0.062655,"contrib_c5":-0.008151,"contrib_resid":-0.007528},{"date":"2026-04-06","tsla":352.82,"tsll":10.87,"sofr":0.0365,"dividend":0.0,"cum_X":-0.116104,"cum_R_simple":-0.109617,"cum_c1":0.205425,"cum_c2":-0.203593,"cum_c3":-0.035996,"cum_c4":-0.0652,"cum_c5":-0.008482,"cum_resid":-0.008257,"contrib_c1":0.193948,"contrib_c2":-0.192219,"contrib_c3":-0.033985,"contrib_c4":-0.061557,"contrib_c5":-0.008008,"contrib_resid":-0.007796},{"date":"2026-04-07","tsla":346.65,"tsll":10.49,"sofr":0.0362,"dividend":0.0,"cum_X":-0.151688,"cum_R_simple":-0.140744,"cum_c1":0.17014,"cum_c2":-0.203905,"cum_c3":-0.036139,"cum_c4":-0.065489,"cum_c5":-0.00852,"cum_resid":-0.007774,"contrib_c1":0.157864,"contrib_c2":-0.189193,"contrib_c3":-0.033532,"contrib_c4":-0.060764,"contrib_c5":-0.007905,"contrib_resid":-0.007213},{"date":"2026-04-08","tsla":343.25,"tsll":10.29,"sofr":0.0359,"dividend":0.0,"cum_X":-0.170938,"cum_R_simple":-0.157126,"cum_c1":0.150427,"cum_c2":-0.204002,"cum_c3":-0.036282,"cum_c4":-0.065779,"cum_c5":-0.008558,"cum_resid":-0.006744,"contrib_c1":0.138272,"contrib_c2":-0.187518,"contrib_c3":-0.03335,"contrib_c4":-0.060464,"contrib_c5":-0.007866,"contrib_resid":-0.006199},{"date":"2026-04-09","tsla":345.62,"tsll":10.45,"sofr":0.0357,"dividend":0.0,"cum_X":-0.155508,"cum_R_simple":-0.14402,"cum_c1":0.164189,"cum_c2":-0.204049,"cum_c3":-0.036423,"cum_c4":-0.066069,"cum_c5":-0.008595,"cum_resid":-0.00456,"contrib_c1":0.152059,"contrib_c2":-0.188975,"contrib_c3":-0.033732,"contrib_c4":-0.061188,"contrib_c5":-0.00796,"contrib_resid":-0.004223},{"date":"2026-04-10","tsla":348.95,"tsll":10.61,"sofr":0.0361,"dividend":0.0,"cum_X":-0.140313,"cum_R_simple":-0.130914,"cum_c1":0.183366,"cum_c2":-0.204141,"cum_c3":-0.036566,"cum_c4":-0.066359,"cum_c5":-0.008633,"cum_resid":-0.00798,"contrib_c1":0.171083,"contrib_c2":-0.190466,"contrib_c3":-0.034117,"contrib_c4":-0.061914,"contrib_c5":-0.008055,"contrib_resid":-0.007446},{"date":"2026-04-13","tsla":352.42,"tsll":10.81,"sofr":0.0363,"dividend":0.0,"cum_X":-0.121639,"cum_R_simple":-0.114532,"cum_c1":0.203156,"cum_c2":-0.204239,"cum_c3":-0.03671,"cum_c4":-0.066649,"cum_c5":-0.008671,"cum_resid":-0.008527,"contrib_c1":0.191286,"contrib_c2":-0.192306,"contrib_c3":-0.034565,"contrib_c4":-0.062754,"contrib_c5":-0.008164,"contrib_resid":-0.008028},{"date":"2026-04-14","tsla":364.2,"tsll":11.54,"sofr":0.0366,"dividend":0.0,"cum_X":-0.056291,"cum_R_simple":-0.054736,"cum_c1":0.268915,"cum_c2":-0.20532,"cum_c3":-0.036855,"cum_c4":-0.066938,"cum_c5":-0.008708,"cum_resid":-0.007385,"contrib_c1":0.261486,"contrib_c2":-0.199648,"contrib_c3":-0.035837,"contrib_c4":-0.065089,"contrib_c5":-0.008468,"contrib_resid":-0.007181},{"date":"2026-04-15","tsla":391.95,"tsll":13.3,"sofr":0.0372,"dividend":0.0,"cum_X":0.085654,"cum_R_simple":0.089429,"cum_c1":0.415777,"cum_c2":-0.210712,"cum_c3":-0.037002,"cum_c4":-0.067228,"cum_c5":-0.008746,"cum_resid":-0.006435,"contrib_c1":0.434103,"contrib_c2":-0.22,"contrib_c3":-0.038633,"contrib_c4":-0.070191,"contrib_c5":-0.009132,"contrib_resid":-0.006719},{"date":"2026-04-16","tsla":388.9,"tsll":13.07,"sofr":0.0367,"dividend":0.0,"cum_X":0.068209,"cum_R_simple":0.070589,"cum_c1":0.400153,"cum_c2":-0.210773,"cum_c3":-0.037147,"cum_c4":-0.067518,"cum_c5":-0.008784,"cum_resid":-0.007722,"contrib_c1":0.414116,"contrib_c2":-0.218128,"contrib_c3":-0.038444,"contrib_c4":-0.069874,"contrib_c5":-0.00909,"contrib_resid":-0.007991},{"date":"2026-04-17","tsla":400.62,"tsll":13.9,"sofr":0.0365,"dividend":0.0,"cum_X":0.129779,"cum_R_simple":0.138576,"cum_c1":0.459535,"cum_c2":-0.211655,"cum_c3":-0.037292,"cum_c4":-0.067808,"cum_c5":-0.008821,"cum_resid":-0.004181,"contrib_c1":0.490687,"contrib_c2":-0.226003,"contrib_c3":-0.03982,"contrib_c4":-0.072404,"contrib_c5":-0.009419,"contrib_resid":-0.004464},{"date":"2026-04-20","tsla":392.5,"tsll":13.29,"sofr":0.0363,"dividend":0.0,"cum_X":0.084902,"cum_R_simple":0.08861,"cum_c1":0.418582,"cum_c2":-0.212074,"cum_c3":-0.037436,"cum_c4":-0.068097,"cum_c5":-0.008859,"cum_resid":-0.007214,"contrib_c1":0.436865,"contrib_c2":-0.221337,"contrib_c3":-0.039071,"contrib_c4":-0.071072,"contrib_c5":-0.009246,"contrib_resid":-0.007529},{"date":"2026-04-21","tsla":386.42,"tsll":12.87,"sofr":0.0363,"dividend":0.0,"cum_X":0.052789,"cum_R_simple":0.054207,"cum_c1":0.387358,"cum_c2":-0.212318,"cum_c3":-0.037579,"cum_c4":-0.068387,"cum_c5":-0.008897,"cum_resid":-0.007388,"contrib_c1":0.397765,"contrib_c2":-0.218022,"contrib_c3":-0.038589,"contrib_c4":-0.070224,"contrib_c5":-0.009136,"contrib_resid":-0.007587},{"date":"2026-04-22","tsla":387.51,"tsll":12.93,"sofr":0.0364,"dividend":0.0,"cum_X":0.05744,"cum_R_simple":0.059122,"cum_c1":0.392992,"cum_c2":-0.212326,"cum_c3":-0.037724,"cum_c4":-0.068677,"cum_c5":-0.008935,"cum_resid":-0.007891,"contrib_c1":0.404498,"contrib_c2":-0.218542,"contrib_c3":-0.038828,"contrib_c4":-0.070688,"contrib_c5":-0.009196,"contrib_resid":-0.008122},{"date":"2026-04-23","tsla":373.72,"tsll":12.02,"sofr":0.0365,"dividend":0.0,"cum_X":-0.015538,"cum_R_simple":-0.015418,"cum_c1":0.320522,"cum_c2":-0.213639,"cum_c3":-0.037868,"cum_c4":-0.068967,"cum_c5":-0.008972,"cum_resid":-0.006615,"contrib_c1":0.318045,"contrib_c2":-0.211987,"contrib_c3":-0.037575,"contrib_c4":-0.068434,"contrib_c5":-0.008903,"contrib_resid":-0.006564},{"date":"2026-04-24","tsla":376.3,"tsll":12.17,"sofr":0.0366,"dividend":0.0,"cum_X":-0.003136,"cum_R_simple":-0.003131,"cum_c1":0.334282,"cum_c2":-0.213686,"cum_c3":-0.038013,"cum_c4":-0.069257,"cum_c5":-0.00901,"cum_resid":-0.007453,"contrib_c1":0.333758,"contrib_c2":-0.213351,"contrib_c3":-0.037954,"contrib_c4":-0.069148,"contrib_c5":-0.008996,"contrib_resid":-0.007441},{"date":"2026-04-27","tsla":378.67,"tsll":12.32,"sofr":0.0366,"dividend":0.0,"cum_X":0.009114,"cum_R_simple":0.009155,"cum_c1":0.346839,"cum_c2":-0.213725,"cum_c3":-0.038158,"cum_c4":-0.069546,"cum_c5":-0.009048,"cum_resid":-0.007248,"contrib_c1":0.348424,"contrib_c2":-0.214702,"contrib_c3":-0.038332,"contrib_c4":-0.069864,"contrib_c5":-0.009089,"contrib_resid":-0.007281},{"date":"2026-04-28","tsla":376.02,"tsll":12.14,"sofr":0.0364,"dividend":0.0,"cum_X":-0.005604,"cum_R_simple":-0.005589,"cum_c1":0.332793,"cum_c2":-0.213775,"cum_c3":-0.038302,"cum_c4":-0.069836,"cum_c5":-0.009085,"cum_resid":-0.007399,"contrib_c1":0.331863,"contrib_c2":-0.213177,"contrib_c3":-0.038195,"contrib_c4":-0.069641,"contrib_c5":-0.00906,"contrib_resid":-0.007379},{"date":"2026-04-29","tsla":372.8,"tsll":11.93,"sofr":0.0363,"dividend":0.0,"cum_X":-0.023054,"cum_R_simple":-0.02279,"cum_c1":0.315593,"cum_c2":-0.213849,"cum_c3":-0.038446,"cum_c4":-0.070126,"cum_c5":-0.009123,"cum_resid":-0.007103,"contrib_c1":0.311983,"contrib_c2":-0.211403,"contrib_c3":-0.038006,"contrib_c4":-0.069324,"contrib_c5":-0.009019,"contrib_resid":-0.007022},{"date":"2026-04-30","tsla":381.63,"tsll":12.47,"sofr":0.0366,"dividend":0.0,"cum_X":0.021216,"cum_R_simple":0.021442,"cum_c1":0.362412,"cum_c2":-0.214397,"cum_c3":-0.038591,"cum_c4":-0.070416,"cum_c5":-0.009161,"cum_resid":-0.008632,"contrib_c1":0.366284,"contrib_c2":-0.216687,"contrib_c3":-0.039003,"contrib_c4":-0.071168,"contrib_c5":-0.009259,"contrib_resid":-0.008725},{"date":"2026-05-01","tsla":390.82,"tsll":13.07,"sofr":0.0364,"dividend":0.0,"cum_X":0.068209,"cum_R_simple":0.070589,"cum_c1":0.410003,"cum_c2":-0.214963,"cum_c3":-0.038735,"cum_c4":-0.070705,"cum_c5":-0.009198,"cum_resid":-0.008192,"contrib_c1":0.424309,"contrib_c2":-0.222464,"contrib_c3":-0.040087,"contrib_c4":-0.073173,"contrib_c5":-0.009519,"contrib_resid":-0.008478},{"date":"2026-05-04","tsla":392.51,"tsll":13.18,"sofr":0.0363,"dividend":0.0,"cum_X":0.07659,"cum_R_simple":0.0796,"cum_c1":0.418633,"cum_c2":-0.214982,"cum_c3":-0.038879,"cum_c4":-0.070995,"cum_c5":-0.009236,"cum_resid":-0.007951,"contrib_c1":0.435082,"contrib_c2":-0.223429,"contrib_c3":-0.040406,"contrib_c4":-0.073785,"contrib_c5":-0.009599,"contrib_resid":-0.008263},{"date":"2026-05-05","tsla":389.37,"tsll":12.96,"sofr":0.0362,"dividend":0.0,"cum_X":0.059757,"cum_R_simple":0.061579,"cum_c1":0.402569,"cum_c2":-0.215046,"cum_c3":-0.039022,"cum_c4":-0.071285,"cum_c5":-0.009274,"cum_resid":-0.008184,"contrib_c1":0.41484,"contrib_c2":-0.221601,"contrib_c3":-0.040212,"contrib_c4":-0.073458,"contrib_c5":-0.009557,"contrib_resid":-0.008434},{"date":"2026-05-06","tsla":398.73,"tsll":13.58,"sofr":0.0361,"dividend":0.0,"cum_X":0.106488,"cum_R_simple":0.112364,"cum_c1":0.450078,"cum_c2":-0.21561,"cum_c3":-0.039165,"cum_c4":-0.071575,"cum_c5":-0.009312,"cum_resid":-0.007928,"contrib_c1":0.474915,"contrib_c2":-0.227509,"contrib_c3":-0.041327,"contrib_c4":-0.075525,"contrib_c5":-0.009825,"contrib_resid":-0.008366},{"date":"2026-05-07","tsla":411.79,"tsll":14.47,"sofr":0.036,"dividend":0.0,"cum_X":0.169967,"cum_R_simple":0.185266,"cum_c1":0.514536,"cum_c2":-0.216649,"cum_c3":-0.039308,"cum_c4":-0.071864,"cum_c5":-0.009349,"cum_resid":-0.007398,"contrib_c1":0.560849,"contrib_c2":-0.23615,"contrib_c3":-0.042846,"contrib_c4":-0.078333,"contrib_c5":-0.010191,"contrib_resid":-0.008064},{"date":"2026-05-08","tsla":428.35,"tsll":15.62,"sofr":0.036,"dividend":0.0,"cum_X":0.246442,"cum_R_simple":0.279465,"cum_c1":0.59339,"cum_c2":-0.218204,"cum_c3":-0.03945,"cum_c4":-0.072154,"cum_c5":-0.009387,"cum_resid":-0.007753,"contrib_c1":0.672904,"contrib_c2":-0.247443,"contrib_c3":-0.044737,"contrib_c4":-0.081823,"contrib_c5":-0.010645,"contrib_resid":-0.008792},{"date":"2026-05-11","tsla":445.0,"tsll":16.84,"sofr":0.036,"dividend":0.0,"cum_X":0.32135,"cum_R_simple":0.378988,"cum_c1":0.669657,"cum_c2":-0.219658,"cum_c3":-0.039593,"cum_c4":-0.072444,"cum_c5":-0.009425,"cum_resid":-0.007188,"contrib_c1":0.789769,"contrib_c2":-0.259056,"contrib_c3":-0.046694,"contrib_c4":-0.085438,"contrib_c5":-0.011115,"contrib_resid":-0.008477},{"date":"2026-05-12","tsla":433.44,"tsll":15.96,"sofr":0.036,"dividend":0.0,"cum_X":0.267975,"cum_R_simple":0.307315,"cum_c1":0.617015,"cum_c2":-0.220351,"cum_c3":-0.039735,"cum_c4":-0.072734,"cum_c5":-0.009462,"cum_resid":-0.006758,"contrib_c1":0.707595,"contrib_c2":-0.252699,"contrib_c3":-0.045569,"contrib_c4":-0.083411,"contrib_c5":-0.010851,"contrib_resid":-0.00775}];
+</script>
+<script>
+// ============================================================
+// State
+// ============================================================
+const state = {
+  view: 'log',          // 'log' or 'simple'
+  yaxis: 'auto',        // 'auto' or 'symmetric'
+  hiddenFactors: new Set(),
+};
+
+const factors = [
+  { key: 'c1', label: '完美 2X 槓桿', color: 'var(--c1)', hex: '#4682B4' },
+  { key: 'c2', label: '變異數拖累', color: 'var(--c2)', hex: '#D4A574' },
+  { key: 'c4', label: 'Swap 利差 (4.03%)', color: 'var(--c4)', hex: '#B7546B' },
+  { key: 'c3', label: '淨 SOFR 融資成本', color: 'var(--c3)', hex: '#85A552' },
+  { key: 'c5', label: '管理費 (0.95%)', color: 'var(--c5)', hex: '#7088A8' },
+  { key: 'resid', label: '殘差', color: 'var(--resid)', hex: '#B8B8B8' },
+];
+
+const factorByKey = Object.fromEntries(factors.map(f => [f.key, f]));
+
+// Parse dates
+ATTRIBUTION_DATA.forEach(d => {
+  d.dateObj = new Date(d.date);
+});
+
+// Key reference dates
+const referenceDates = [
+  { date: '2025-07-31', label: 'QH3 揭露' },
+  { date: '2025-10-31', label: '年報' },
+  { date: '2026-01-30', label: 'QH1 揭露' },
+];
+
+// ============================================================
+// Dimensions
+// ============================================================
+function getDimensions() {
+  const container = document.getElementById('chart');
+  const rect = container.getBoundingClientRect();
+  return {
+    width: rect.width,
+    height: rect.height,
+    margin: { top: 30, right: 80, bottom: 40, left: 50 },
+  };
+}
+
+// ============================================================
+// Render
+// ============================================================
+function render() {
+  const { width, height, margin } = getDimensions();
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+
+  // Clear and create SVG
+  const container = d3.select('#chart');
+  container.selectAll('svg').remove();
+
+  const svg = container.append('svg')
+    .attr('viewBox', `0 0 ${width} ${height}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet');
+
+  const g = svg.append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // Filter active factors
+  const activeFactors = factors.filter(f => !state.hiddenFactors.has(f.key));
+
+  // Determine which series to use based on view
+  const isPct = state.view === 'pct';
+  const prefix = state.view === 'log' ? 'cum_' : (state.view === 'simple' ? 'contrib_' : 'cum_');
+  const totalKey = state.view === 'log' ? 'cum_X' : 'cum_R_simple';
+
+  // Build positive and negative running totals for stacking
+  // (Treat each factor's series; split into positive and negative parts per day)
+  const dataWithStacks = ATTRIBUTION_DATA.map(d => {
+    let point = { date: d.dateObj };
+
+    // For pct view: normalize values by sum of absolute values
+    let factorValues = {};
+    if (isPct) {
+      let absSum = 0;
+      activeFactors.forEach(f => {
+        absSum += Math.abs(d['cum_' + f.key]);
+      });
+      activeFactors.forEach(f => {
+        factorValues[f.key] = absSum > 0 ? d['cum_' + f.key] / absSum : 0;
+      });
+      // In pct view, "total" line shows the sign of cum_R_simple
+      // (whether the day was net positive or negative)
+      point.total = d.cum_R_simple >= 0 ? 1 : -1;
+      point.actualTotal = d.cum_R_simple;
+    } else {
+      activeFactors.forEach(f => {
+        factorValues[f.key] = d[prefix + f.key];
+      });
+      point.total = d[totalKey];
+    }
+
+    let posRunning = 0;
+    let negRunning = 0;
+
+    activeFactors.forEach(f => {
+      const val = factorValues[f.key];
+      point[f.key + '_raw'] = val;
+
+      if (val >= 0) {
+        point[f.key + '_y0'] = posRunning;
+        point[f.key + '_y1'] = posRunning + val;
+        posRunning += val;
+      } else {
+        point[f.key + '_y0'] = negRunning + val;
+        point[f.key + '_y1'] = negRunning;
+        negRunning += val;
+      }
+    });
+
+    point.posTotal = posRunning;
+    point.negTotal = negRunning;
+    return point;
+  });
+
+  // Scales
+  const xScale = d3.scaleTime()
+    .domain(d3.extent(dataWithStacks, d => d.date))
+    .range([0, innerWidth]);
+
+  let yMin, yMax;
+  if (isPct) {
+    // 100% stacked view: fixed range
+    yMin = -1.05;
+    yMax = 1.05;
+  } else {
+    yMin = d3.min(dataWithStacks, d => Math.min(d.negTotal, d.total));
+    yMax = d3.max(dataWithStacks, d => Math.max(d.posTotal, d.total));
+
+    // Add padding
+    const yRange = yMax - yMin;
+    yMin -= yRange * 0.05;
+    yMax += yRange * 0.08;
+
+    if (state.yaxis === 'symmetric') {
+      const maxAbs = Math.max(Math.abs(yMin), Math.abs(yMax));
+      yMin = -maxAbs;
+      yMax = maxAbs;
+    }
+  }
+
+  const yScale = d3.scaleLinear()
+    .domain([yMin, yMax])
+    .range([innerHeight, 0]);
+
+  // Grid
+  const yTicks = yScale.ticks(8);
+  g.append('g')
+    .attr('class', 'grid')
+    .selectAll('line')
+    .data(yTicks)
+    .enter().append('line')
+    .attr('x1', 0)
+    .attr('x2', innerWidth)
+    .attr('y1', d => yScale(d))
+    .attr('y2', d => yScale(d));
+
+  // Reference vertical lines
+  const refGroup = g.append('g').attr('class', 'reference-lines');
+  referenceDates.forEach(ref => {
+    const x = xScale(new Date(ref.date));
+    refGroup.append('line')
+      .attr('class', 'reference-line')
+      .attr('x1', x).attr('x2', x)
+      .attr('y1', 0).attr('y2', innerHeight);
+    refGroup.append('text')
+      .attr('class', 'reference-label')
+      .attr('x', x)
+      .attr('y', -8)
+      .text(ref.label);
+  });
+
+  // Areas
+  const areasGroup = g.append('g').attr('class', 'areas');
+  activeFactors.forEach(f => {
+    const area = d3.area()
+      .x(d => xScale(d.date))
+      .y0(d => yScale(d[f.key + '_y0']))
+      .y1(d => yScale(d[f.key + '_y1']))
+      .curve(d3.curveLinear);
+
+    areasGroup.append('path')
+      .datum(dataWithStacks)
+      .attr('class', 'area area-' + f.key)
+      .attr('fill', f.hex)
+      .attr('opacity', 0.88)
+      .attr('d', area);
+  });
+
+  // Zero line
+  g.append('line')
+    .attr('class', 'zero-line')
+    .attr('x1', 0).attr('x2', innerWidth)
+    .attr('y1', yScale(0)).attr('y2', yScale(0));
+
+  if (!isPct) {
+    // Total line (black) - only in log/simple views
+    const totalLine = d3.line()
+      .x(d => xScale(d.date))
+      .y(d => yScale(d.total))
+      .curve(d3.curveLinear);
+
+    g.append('path')
+      .datum(dataWithStacks)
+      .attr('class', 'total-line')
+      .attr('d', totalLine);
+
+    // Final value marker
+    const lastPoint = dataWithStacks[dataWithStacks.length - 1];
+    g.append('circle')
+      .attr('cx', xScale(lastPoint.date))
+      .attr('cy', yScale(lastPoint.total))
+      .attr('r', 3.5)
+      .attr('fill', '#1a1a1a');
+
+    const lastSimple = ATTRIBUTION_DATA[ATTRIBUTION_DATA.length - 1].cum_R_simple;
+    const lastLog = ATTRIBUTION_DATA[ATTRIBUTION_DATA.length - 1].cum_X;
+    const lastTotal = state.view === 'log' ? lastLog : lastSimple;
+    g.append('text')
+      .attr('x', xScale(lastPoint.date) + 8)
+      .attr('y', yScale(lastPoint.total))
+      .attr('dy', '0.32em')
+      .style('font-size', '12px')
+      .style('font-weight', '600')
+      .style('fill', '#1a1a1a')
+      .text(`${(lastTotal * 100).toFixed(1)}%`);
+  } else {
+    // In pct view, add ±100% reference lines
+    g.append('line')
+      .attr('x1', 0).attr('x2', innerWidth)
+      .attr('y1', yScale(1)).attr('y2', yScale(1))
+      .attr('stroke', '#aaa').attr('stroke-width', 0.7)
+      .attr('stroke-dasharray', '3 3');
+    g.append('line')
+      .attr('x1', 0).attr('x2', innerWidth)
+      .attr('y1', yScale(-1)).attr('y2', yScale(-1))
+      .attr('stroke', '#aaa').attr('stroke-width', 0.7)
+      .attr('stroke-dasharray', '3 3');
+  }
+
+  // Axes
+  const xAxis = d3.axisBottom(xScale)
+    .ticks(d3.timeMonth.every(1))
+    .tickFormat(d => `${d.getFullYear()}/${d.getMonth() + 1}`)
+    .tickSizeOuter(0);
+  
+  g.append('g')
+    .attr('class', 'axis x-axis')
+    .attr('transform', `translate(0,${innerHeight})`)
+    .call(xAxis);
+
+  const yAxis = d3.axisLeft(yScale)
+    .ticks(8)
+    .tickFormat(d => `${(d * 100).toFixed(0)}%`)
+    .tickSizeOuter(0)
+    .tickSize(0);
+
+  g.append('g')
+    .attr('class', 'axis y-axis')
+    .call(yAxis)
+    .call(g => g.select('.domain').remove());
+
+  // Hover interaction
+  setupHover(g, dataWithStacks, xScale, yScale, innerWidth, innerHeight);
+
+  // Render legend
+  renderLegend();
+
+  // Render summary
+  renderSummary();
+}
+
+// ============================================================
+// Hover
+// ============================================================
+function setupHover(g, data, xScale, yScale, innerWidth, innerHeight) {
+  const hoverGroup = g.append('g').style('display', 'none');
+
+  hoverGroup.append('line')
+    .attr('class', 'hover-line')
+    .attr('y1', 0)
+    .attr('y2', innerHeight);
+
+  const hoverDot = hoverGroup.append('circle')
+    .attr('class', 'hover-dot')
+    .attr('r', 4);
+
+  const overlay = g.append('rect')
+    .attr('width', innerWidth)
+    .attr('height', innerHeight)
+    .attr('fill', 'transparent')
+    .style('cursor', 'crosshair');
+
+  const bisectDate = d3.bisector(d => d.date).left;
+
+  // Initial inspector state: show last day
+  updateInspector(ATTRIBUTION_DATA[ATTRIBUTION_DATA.length - 1], true);
+
+  overlay
+    .on('mouseover', () => {
+      hoverGroup.style('display', null);
+    })
+    .on('mouseout', () => {
+      hoverGroup.style('display', 'none');
+      // Revert inspector to last day when cursor leaves chart
+      updateInspector(ATTRIBUTION_DATA[ATTRIBUTION_DATA.length - 1], true);
+    })
+    .on('mousemove', function(event) {
+      const [mx] = d3.pointer(event);
+      const x0 = xScale.invert(mx);
+      const i = bisectDate(data, x0, 1);
+      const d0 = data[i - 1];
+      const d1 = data[i] || d0;
+      const d = (x0 - d0.date) > (d1.date - x0) ? d1 : d0;
+
+      hoverGroup.select('.hover-line')
+        .attr('x1', xScale(d.date))
+        .attr('x2', xScale(d.date));
+
+      hoverDot
+        .attr('cx', xScale(d.date))
+        .attr('cy', yScale(d.total));
+
+      // Find original data
+      const orig = ATTRIBUTION_DATA.find(r => r.dateObj.getTime() === d.date.getTime());
+      if (orig) updateInspector(orig, false);
+    });
+}
+
+function updateInspector(row, isLatest) {
+  const inspector = document.getElementById('inspector');
+  const isPct = state.view === 'pct';
+  const prefix = state.view === 'log' ? 'cum_' : (state.view === 'simple' ? 'contrib_' : 'cum_');
+
+  let totalLabel, totalVal, modeText;
+  if (state.view === 'log') {
+    totalLabel = 'TSLL 對數報酬';
+    totalVal = row.cum_X;
+    modeText = '累積對數報酬分解';
+  } else if (state.view === 'simple') {
+    totalLabel = 'TSLL 簡單報酬';
+    totalVal = row.cum_R_simple;
+    modeText = '累積簡單報酬分解';
+  } else {
+    totalLabel = 'TSLL 簡單報酬';
+    totalVal = row.cum_R_simple;
+    modeText = '組成百分比分解';
+  }
+
+  // For pct view, compute percentages
+  let pctValues = {};
+  if (isPct) {
+    let absSum = 0;
+    factors.forEach(f => {
+      absSum += Math.abs(row['cum_' + f.key]);
+    });
+    factors.forEach(f => {
+      pctValues[f.key] = absSum > 0 ? row['cum_' + f.key] / absSum : 0;
+    });
+  }
+
+  let html = `<div class="inspector-section header">
+    <div class="inspector-date">${formatDate(row.date)}${isLatest ? ' · 最新' : ''}</div>
+    <div class="inspector-mode">${modeText}</div>
+  </div>`;
+
+  // Prices
+  html += `<div class="inspector-section">
+    <div class="inspector-prices"><span class="inspector-prices-label">TSLA</span><span class="inspector-prices-value">$${row.tsla.toFixed(2)}</span></div>
+    <div class="inspector-prices"><span class="inspector-prices-label">TSLL</span><span class="inspector-prices-value">$${row.tsll.toFixed(2)}</span></div>
+    <div class="inspector-prices"><span class="inspector-prices-label">SOFR</span><span class="inspector-prices-value">${(row.sofr * 100).toFixed(2)}%</span></div>
+    ${row.dividend > 0 ? `<div class="inspector-prices" style="color:#2a7548; font-weight:500;"><span class="inspector-prices-label">股息 (ex-date)</span><span class="inspector-prices-value">+$${row.dividend.toFixed(4)}</span></div>` : ''}
+  </div>`;
+
+  // Factor breakdown
+  html += `<div class="inspector-section">`;
+  factors.forEach(f => {
+    const val = isPct ? pctValues[f.key] : row[prefix + f.key];
+    const valClass = val > 0 ? 'positive' : (val < 0 ? 'negative' : '');
+    const isDimmed = state.hiddenFactors.has(f.key);
+    html += `<div class="inspector-factor${isDimmed ? ' dimmed' : ''}">
+      <span class="inspector-factor-label">
+        <span class="inspector-factor-swatch" style="background:${f.hex}"></span>${f.label}
+      </span>
+      <span class="inspector-factor-value ${valClass}">${formatPct(val)}</span>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Total
+  const totalClass = totalVal > 0 ? 'positive' : (totalVal < 0 ? 'negative' : '');
+  html += `<div class="inspector-section">
+    <div class="inspector-total">
+      <span class="inspector-total-label">${totalLabel}</span>
+      <span class="inspector-total-value ${totalClass}">${formatPct(totalVal)}</span>
+    </div>
+  </div>`;
+
+  // Hint
+  if (isLatest) {
+    html += `<div class="inspector-hint">將滑鼠移到圖表上可查看任一日的數據。</div>`;
+  }
+
+  inspector.innerHTML = html;
+}
+
+// ============================================================
+// Legend
+// ============================================================
+function renderLegend() {
+  const legend = d3.select('#legend');
+  legend.selectAll('*').remove();
+
+  const isPct = state.view === 'pct';
+  const lastRow = ATTRIBUTION_DATA[ATTRIBUTION_DATA.length - 1];
+
+  // Compute pct values for legend if needed
+  let pctValues = {};
+  if (isPct) {
+    let absSum = 0;
+    factors.forEach(f => { absSum += Math.abs(lastRow['cum_' + f.key]); });
+    factors.forEach(f => {
+      pctValues[f.key] = absSum > 0 ? lastRow['cum_' + f.key] / absSum : 0;
+    });
+  }
+
+  // Top line entry (only if not pct mode)
+  if (!isPct) {
+    const totalVal = state.view === 'log' ? lastRow.cum_X : lastRow.cum_R_simple;
+    legend.append('div')
+      .attr('class', 'legend-item')
+      .html(`<div class="legend-swatch line"></div><span class="legend-label">TSLL ${state.view === 'log' ? '對數' : '簡單'}報酬</span><span class="legend-value">${formatPct(totalVal)}</span>`);
+  }
+
+  factors.forEach(f => {
+    const isHidden = state.hiddenFactors.has(f.key);
+    const prefix = state.view === 'log' ? 'cum_' : 'contrib_';
+    const val = isPct ? pctValues[f.key] : lastRow[prefix + f.key];
+
+    const item = legend.append('div')
+      .attr('class', 'legend-item' + (isHidden ? ' dimmed' : ''))
+      .on('click', () => {
+        if (state.hiddenFactors.has(f.key)) {
+          state.hiddenFactors.delete(f.key);
+        } else {
+          state.hiddenFactors.add(f.key);
+        }
+        render();
+      });
+
+    item.append('div')
+      .attr('class', 'legend-swatch')
+      .style('background', f.hex);
+    item.append('span')
+      .attr('class', 'legend-label')
+      .text(f.label);
+    item.append('span')
+      .attr('class', 'legend-value')
+      .text(formatPct(val));
+  });
+}
+
+// ============================================================
+// Summary cards
+// ============================================================
+function renderSummary() {
+  const lastRow = ATTRIBUTION_DATA[ATTRIBUTION_DATA.length - 1];
+  const firstRow = ATTRIBUTION_DATA[0];
+
+  // TSLA performance
+  const tslaReturn = (lastRow.tsla / firstRow.tsla - 1);
+
+  // TSLL performance
+  const tsllReturn = lastRow.cum_R_simple;
+
+  // Total cost (negative contributions in simple)
+  const totalCost = lastRow.contrib_c2 + lastRow.contrib_c3 + lastRow.contrib_c4 + lastRow.contrib_c5;
+  
+  // Residual
+  const resid = lastRow.contrib_resid;
+
+  const cards = [
+    { label: 'TSLA 報酬', value: tslaReturn, sub: `$${firstRow.tsla} → $${lastRow.tsla}` },
+    { label: 'TSLL 報酬', value: tsllReturn, sub: `$${firstRow.tsll} → $${lastRow.tsll}` },
+    { label: 'TSLL vs 2×TSLA', value: tsllReturn - 2 * tslaReturn, sub: '與單純 2× 的落差' },
+    { label: '結構性成本', value: totalCost, sub: '拖累 + 融資 + 費用' },
+    { label: '殘差', value: resid, sub: '模型無法解釋' },
+  ];
+
+  const container = d3.select('#summary');
+  container.selectAll('*').remove();
+
+  cards.forEach(c => {
+    const card = container.append('div').attr('class', 'summary-card');
+    card.append('p').attr('class', 'summary-label').text(c.label);
+    const valEl = card.append('p').attr('class', 'summary-value');
+    valEl.text(formatPct(c.value));
+    if (c.value > 0) valEl.classed('positive', true);
+    if (c.value < 0) valEl.classed('negative', true);
+    card.append('p').attr('class', 'summary-subtitle').text(c.sub);
+  });
+}
+
+// ============================================================
+// Formatters
+// ============================================================
+function formatPct(v) {
+  const sign = v > 0 ? '+' : '';
+  return `${sign}${(v * 100).toFixed(2)}%`;
+}
+
+function formatDate(s) {
+  const d = new Date(s);
+  return d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// ============================================================
+// Controls
+// ============================================================
+document.querySelectorAll('[data-view]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    state.view = this.dataset.view;
+    render();
+  });
+});
+
+document.querySelectorAll('[data-yaxis]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('[data-yaxis]').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    state.yaxis = this.dataset.yaxis;
+    render();
+  });
+});
+
+// ============================================================
+// Init
+// ============================================================
+window.addEventListener('resize', () => {
+  clearTimeout(window._resizeTimer);
+  window._resizeTimer = setTimeout(render, 150);
+});
+
+render();
+</script>
+
+</body>
+</html>
